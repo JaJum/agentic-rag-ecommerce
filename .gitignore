@@ -1,0 +1,32 @@
+# 密钥与本地配置（严禁提交）
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# 运行数据（向量库 / 上传文件 / 模型缓存）
+backend/data/
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+
+# 测试/工具缓存
+.pytest_cache/
+.ruff_cache/
+*.log
+
+# 测试/工具缓存
+.pytest_cache/
+.ruff_cache/
+*.log
