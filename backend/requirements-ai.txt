@@ -1,0 +1,13 @@
+# ============================================================
+# AI 重依赖（M3 向量化/重排阶段安装：pip install -r requirements-ai.txt）
+# 含 torch（约 2.5GB），按里程碑延迟安装以加速 M0 环境搭建
+# ============================================================
+
+torch>=2.3                      # 注意：PyPI 默认是 CPU 构建！GPU 版须：
+                                # pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+                                # torch 与 torchvision 必须同源同版本线，否则报 torchvision::nms does not exist
+sentence-transformers>=3.0      # 本地 Embedding / Rerank 推理（需 accelerate）
+accelerate>=0.30                # sentence-transformers/peft 传递依赖
+langchain-huggingface>=0.1      # HuggingFaceEmbeddings（BGE-M3）
+langchain-chroma>=0.1           # Chroma 向量库集成
+chromadb>=0.5                   # 内嵌向量库

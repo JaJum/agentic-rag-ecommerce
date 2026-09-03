@@ -1,0 +1,47 @@
+# ============================================================
+# LangChain RAG 后端核心依赖（M0 安装；AI 重依赖见 requirements-ai.txt，M3 安装）
+# Python 3.12
+# ============================================================
+
+# --- Web 框架 ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9          # 文件上传
+sse-starlette>=2.1               # SSE 流式问答
+
+# --- 配置与日志 ---
+pydantic>=2.7
+pydantic-settings>=2.3           # 读取 .env
+structlog>=24.1                  # 结构化日志（trace_id 贯穿）
+
+# --- 数据库 ---
+SQLAlchemy>=2.0                  # ORM，异步会话
+aiomysql>=0.3                    # MySQL 异步驱动（PyPI 最高 0.3.x）
+greenlet>=3.0                    # SQLAlchemy async 依赖
+
+# --- 认证 ---
+PyJWT>=2.8                       # JWT 签发/校验
+bcrypt>=4.1                      # 密码哈希（直接用官方库，规避 passlib 兼容问题）
+
+# --- LangChain（项目指定框架）---
+langchain>=0.3
+langchain-core>=0.3
+langchain-community>=0.3         # BM25Retriever / loaders 等
+langchain-openai>=0.2            # ChatOpenAI（对接阿里云百炼兼容模式）
+
+# --- 检索 ---
+rank-bm25>=0.2                   # BM25 关键词检索
+jieba>=0.42                      # 中文分词
+
+# --- 文档解析 ---
+pypdf>=4.2                       # PDF
+docx2txt>=0.8                    # Word
+pandas>=2.2                      # CSV/XLSX
+openpyxl>=3.1                    # XLSX 读取
+
+# --- 工具 ---
+httpx>=0.27                      # HTTP 客户端（测试/内部调用）
+
+# --- 测试 ---
+pytest>=8.0
+pytest-asyncio>=0.24
