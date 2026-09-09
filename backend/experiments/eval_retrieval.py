@@ -4,7 +4,7 @@
 实验二：查询改写 on/off（多轮指代问题）
 指标：命中率@5（预期知识块进入 top-5）、MRR@5（首个相关结果排名倒数均值）
 运行：cd backend && python -m experiments.eval_retrieval
-输出：控制台 + 项目根目录《07-检索对比实验报告.md》
+输出：控制台 + docs/07-检索对比实验报告.md
 """
 import asyncio
 import sys
@@ -153,7 +153,7 @@ async def main() -> None:
 
     # ================= 生成实验报告 =================
     report = _build_report(exp1, (hit_no, mrr_no), (hit_yes, mrr_yes), rewrite_examples)
-    out = PROJECT_ROOT / "07-检索对比实验报告.md"
+    out = PROJECT_ROOT / "docs" / "07-检索对比实验报告.md"
     out.write_text(report, encoding="utf-8")
     print(f"\n报告已写入：{out}")
 
