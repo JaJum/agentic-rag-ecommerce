@@ -5,6 +5,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 本文件位于 backend/app/core/，项目根目录向上三级
@@ -57,13 +58,42 @@ class Settings(BaseSettings):
     cache_ttl: int = 600                      # 问答缓存 TTL（秒）
     cache_size: int = 256                     # 内存缓存条数上限
 
+    # ---------- Agent（M8：LangGraph 编排） ----------
+    agent_enabled: bool = True                # 总开关；false 时行为与改造前完全一致
+    agent_max_steps: int = 3                  # 最多工具调用步数
+    agent_timeout_s: int = 30                 # 单次问答 Agent 总超时
+    agent_tool_timeout_s: int = 8             # 单工具超时
+    agent_fast_path: bool = True              # 单跳知识问题跳过 Agent，走原 RAG
+    agent_allow_write_tools: bool = False     # 转人工等写操作开关
+    agent_router_model: str = ""              # 空则复用 llm_rewrite_model
+    agent_temperature: float = 0.1
+    agent_tool_mode: str = "auto"             # auto | native | prompt
+
+    # ---------- 可复现性 / Lite 模式 ----------
+    retrieval_mode: str = "hybrid"            # hybrid | bm25
+    embedding_provider: str = "local"         # local | api | none
+    mock_llm: bool = False                    # 无 Key 演示 / CI
+    db_url: str = Field("", validation_alias="DATABASE_URL")  # 覆盖连接串（如 SQLite）
+
+    # ---------- 可选追踪（LangSmith） ----------
+    langsmith_tracing: bool = False
+    langsmith_api_key: str = ""
+    langsmith_project: str = "agentic-rag-ecommerce"
+
     @property
     def database_url(self) -> str:
-        """SQLAlchemy 异步连接串（aiomysql 驱动）"""
+        """SQLAlchemy 异步连接串：DATABASE_URL 优先，否则 MySQL（aiomysql）"""
+        if self.db_url:
+            return self.db_url
         return (
             f"mysql+aiomysql://{self.mysql_user}:{self.mysql_password}"
             f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_db}?charset=utf8mb4"
         )
+
+    @property
+    def agent_router_model_name(self) -> str:
+        """路由/改写使用的轻量模型（未单独配置时复用改写模型）"""
+        return self.agent_router_model or self.llm_rewrite_model
 
     @property
     def thinking_extra_body(self) -> dict:

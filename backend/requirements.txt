@@ -28,6 +28,8 @@ langchain>=0.3
 langchain-core>=0.3
 langchain-community>=0.3         # BM25Retriever / loaders 等
 langchain-openai>=0.2            # ChatOpenAI（对接阿里云百炼兼容模式）
+langgraph>=1.0                   # Agent 状态机编排（M8）
+langsmith>=0.2                   # 可选：执行追踪（LANGSMITH_TRACING=true 时启用）
 
 # --- 检索 ---
 rank-bm25>=0.2                   # BM25 关键词检索
