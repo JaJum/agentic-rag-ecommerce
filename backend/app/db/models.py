@@ -189,3 +189,19 @@ class QaLog(Base):
     hit: Mapped[Optional[int]] = mapped_column(Integer, comment="1=命中知识库 0=兜底拒答")
     token_usage: Mapped[Optional[int]] = mapped_column(Integer, comment="token 消耗")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, server_default=func.now())
+
+class HandoffTicket(Base):
+    """转人工工单（Agent 写工具，AGENT_ALLOW_WRITE_TOOLS=false 时只返回模拟工单号）"""
+
+    __tablename__ = "handoff_tickets"
+    __table_args__ = (Index("ix_handoff_status", "status", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    session_id: Mapped[Optional[str]] = mapped_column(String(36), comment="来源会话")
+    user_id: Mapped[Optional[int]] = mapped_column(BigInteger, comment="提问用户")
+    reason: Mapped[str] = mapped_column(String(255), comment="转人工原因")
+    summary: Mapped[str] = mapped_column(String(1000), comment="问题摘要（给人工客服）")
+    status: Mapped[str] = mapped_column(
+        Enum("open", "closed", name="handoff_status"), default="open", comment="工单状态"
+    )
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))

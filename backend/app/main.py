@@ -19,6 +19,7 @@ from app.db.base import AsyncSessionLocal, Base, engine
 from app.db.models import Chunk
 from app.db.seed import seed_admin
 from app.services import embeddings, reranker
+from app.services.agent.catalog import refresh_catalog
 from app.services.bm25_index import bm25_index
 from app.services.tasks import recover_stale_documents
 
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(embeddings.get_embedding_model)
     await asyncio.to_thread(reranker.get_reranker)
     await rebuild_bm25_on_startup()
+    await _refresh_catalog_safe()
     log.info("app.started", llm_model=settings.llm_model, thinking=settings.llm_enable_thinking, recovered=recovered)
     yield
     await engine.dispose()
@@ -81,6 +83,15 @@ async def _migrate_message_status(conn) -> None:
             "COMMENT 'complete=完整 partial=断连截断 error=失败 general=通用闲聊回答(非知识库) fallback=兜底拒答'"
         ))
         log.info("migrate.message_status_extended")
+
+
+async def _refresh_catalog_safe() -> None:
+    """启动时加载商品目录；失败只告警，不阻塞服务启动"""
+    try:
+        catalog = await refresh_catalog()
+        log.info("agent.catalog.ready", products=catalog.size())
+    except Exception as exc:  # noqa: BLE001
+        log.warning("agent.catalog.startup_failed", error=str(exc))
 
 
 async def rebuild_bm25_on_startup() -> None:

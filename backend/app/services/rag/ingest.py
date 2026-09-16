@@ -79,6 +79,13 @@ async def run_ingest(doc_id: str) -> None:
 
             await _set_stage(session, doc, "completed", 100)
             bump_index_version()  # 索引变化 → 问答缓存 key 失效（M5）
+            # 参数块变化 → 刷新 Agent 商品目录（失败不影响入库结果）
+            try:
+                from app.services.agent.catalog import refresh_catalog
+
+                await refresh_catalog()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("ingest.catalog_refresh_failed", error=str(exc))
             log.info("ingest.completed", doc_id=doc.id, chunks=len(chunks))
         except Exception as exc:  # noqa: BLE001 —— 兜底转 failed 状态
             await session.rollback()

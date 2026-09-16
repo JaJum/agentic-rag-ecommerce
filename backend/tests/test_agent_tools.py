@@ -74,7 +74,7 @@ async def test_search_tool_passes_through_numbered_contexts(monkeypatch):
         "search_knowledge_base",
     )
 
-    async def fake_hybrid(query: str, k: int):
+    async def fake_hybrid(query: str, k: int, chunk_types=None):
         assert query == "星河 X5 电池"
         return [ctx], True
 
@@ -87,7 +87,7 @@ async def test_search_tool_passes_through_numbered_contexts(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_tool_returns_empty_when_not_relevant(monkeypatch):
-    async def fake_hybrid(query: str, k: int):
+    async def fake_hybrid(query: str, k: int, chunk_types=None):
         return [], False
 
     monkeypatch.setattr(agent_tools, "_search_hybrid", fake_hybrid)
