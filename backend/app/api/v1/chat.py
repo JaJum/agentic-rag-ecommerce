@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
+from app.core.config import get_settings
 from app.core.deps import get_current_user
 from app.core.exceptions import BizError
 from app.core.logging import get_logger
@@ -19,6 +20,7 @@ from app.db.base import AsyncSessionLocal, get_db
 from app.db.models import Feedback, Message, MessageCitation, QaLog, User
 from app.schemas.chat import ChatStreamRequest, FeedbackIn, SessionIdIn
 from app.services import session_service
+from app.services.agent.runner import run_agent_stream
 from app.services.cache import bump_index_version, get_cache, qa_cache_key
 from app.services.llm import get_llm
 from app.services.rag.fallback import is_business_query, make_general_messages
@@ -126,6 +128,142 @@ async def chat_stream(
                                     "latency_ms": latency_ms, "cache_hit": True})
                 return
 
+            # ⓪-2 Agent 分支（M8）：LangGraph 编排；失败自动降级到原 RAG 链路
+            if get_settings().agent_enabled:
+                agent_content = ""
+                agent_ctx: list[dict] = []
+                agent_status = "ok"
+                agent_route = None
+                agent_steps = 0
+                agent_rewritten = body.query
+                try:
+                    yield _sse("meta", {
+                        "message_id": assistant_msg_id,
+                        "session_id": session.id,
+                        "agent_enabled": True,
+                        "retrieval_ms": 0,
+                    })
+                    async for ev in run_agent_stream(
+                        body.query,
+                        history,
+                        message_id=assistant_msg_id,
+                        session_id=session.id,
+                        user_id=user.id,
+                    ):
+                        name = ev.get("event")
+                        data = ev.get("data") or {}
+                        if name == "token":
+                            delta = data.get("delta") or ""
+                            if not delta:
+                                continue
+                            if first_token_ms is None:
+                                first_token_ms = int((time.perf_counter() - t_start) * 1000)
+                            agent_content += delta
+                            content += delta
+                            yield _sse("token", {"delta": delta})
+                        elif name == "done":
+                            agent_ctx = data.get("contexts") or []
+                            agent_status = data.get("status") or "ok"
+                            agent_route = data.get("route")
+                            agent_steps = data.get("steps") or 0
+                            agent_rewritten = data.get("rewritten_query") or body.query
+                            continue
+                        else:
+                            yield _sse(name, data)
+
+                    # 引用列表：编号与最终 Prompt 中的 [n] 一致
+                    citations_meta = []
+                    for i, c in enumerate(agent_ctx, start=1):
+                        meta = c.get("meta") or {}
+                        entry = {
+                            "n": i,
+                            "chunk_id": c.get("chunk_id", ""),
+                            "doc_id": c.get("doc_id") or meta.get("doc_id"),
+                            "doc_name": c.get("doc_name") or meta.get("doc_name", "未知来源"),
+                            "chunk_type": c.get("chunk_type"),
+                            "snippet": (c.get("text") or "")[:300],
+                            "score": round(float(c.get("score", 0.0)), 4),
+                            "cited": False,
+                        }
+                        citations_meta.append(entry)
+                        yield _sse("citation", entry)
+
+                    cited = set(extract_citations(agent_content, len(citations_meta)))
+                    for entry in citations_meta:
+                        entry["cited"] = entry["n"] in cited
+
+                    latency_ms = int((time.perf_counter() - t_start) * 1000)
+                    msg_status = {
+                        "ok": "complete",
+                        "fallback": "fallback",
+                        "timeout": "partial",
+                        "error": "error",
+                    }.get(agent_status, "complete")
+                    if stop_event.is_set():
+                        msg_status = "partial"
+                    if not agent_content:
+                        agent_content = FALLBACK_TEXT
+                        if msg_status == "complete":
+                            msg_status = "fallback"
+                        yield _sse("token", {"delta": agent_content})
+
+                    await _persist_message(
+                        session.id,
+                        assistant_msg_id,
+                        "assistant",
+                        agent_content,
+                        agent_rewritten,
+                        citations_meta,
+                        msg_status,
+                        None,
+                    )
+                    persisted = True
+                    await _persist_citations(assistant_msg_id, citations_meta)
+                    await _persist_qa_log(
+                        user.id,
+                        session.id,
+                        body.query,
+                        agent_rewritten,
+                        latency_ms,
+                        first_token_ms,
+                        len(citations_meta),
+                        hit=1 if citations_meta else 0,
+                    )
+                    if msg_status == "complete":
+                        cache.set(cache_key, {
+                            "content": agent_content,
+                            "citations": citations_meta,
+                            "rewritten_query": agent_rewritten,
+                        })
+                    log.info("chat.agent_done", route=agent_route, steps=agent_steps,
+                             latency_ms=latency_ms, citations=len(citations_meta))
+                    yield _sse("done", {
+                        "message_id": assistant_msg_id,
+                        "hit": bool(citations_meta),
+                        "answer_source": "agent",
+                        "route": agent_route,
+                        "steps": agent_steps,
+                        "latency_ms": latency_ms,
+                        "first_token_ms": first_token_ms,
+                    })
+                    return
+                except Exception as exc:  # noqa: BLE001
+                    log.error("chat.agent_failed", error=str(exc), exc_info=True)
+                    if content:
+                        # 已经输出部分内容：不重跑，保存 partial
+                        await _persist_message(session.id, assistant_msg_id, "assistant",
+                                               content, None, [], "partial", None)
+                        persisted = True
+                        yield _sse("done", {
+                            "message_id": assistant_msg_id,
+                            "hit": False,
+                            "answer_source": "agent_error",
+                            "latency_ms": int((time.perf_counter() - t_start) * 1000),
+                        })
+                        return
+                    # 未输出任何内容：清空状态，降级到原 RAG 链路
+                    content = ""
+                    first_token_ms = None
             # ① 查询改写（多轮指代消解，失败自动回退原问题）
             rewritten = await rewrite_query(body.query, history)
 

@@ -26,6 +26,10 @@ log = get_logger(__name__)
 
 EMPTY_RESULT_TEXT = "知识库中未检索到相关内容。"
 
+
+class ToolTimeoutError(RuntimeError):
+    """工具执行超时（由 guardrail 捕获并转结构化错误）"""
+
 # 工具统一返回类型
 ToolResult = tuple[str, dict[str, Any]]
 
@@ -171,12 +175,20 @@ async def _search_bm25(
 async def _search_contexts(
     query: str, k: int, chunk_types: set[str] | None = None
 ) -> tuple[list[dict[str, Any]], bool]:
-    """按检索模式分发，返回 (上下文, 是否相关)"""
+    """按检索模式分发，返回 (上下文, 是否相关)；带单工具超时保护"""
     settings = get_settings()
-    if settings.retrieval_mode == "bm25" or settings.embedding_provider == "none":
-        contexts = await _search_bm25(query, k, chunk_types)
-        return _dedupe(contexts)[:k], bool(contexts)
-    return await _search_hybrid(query, k, chunk_types)
+    timeout = float(settings.agent_tool_timeout_s or 8)
+
+    async def _dispatch():
+        if settings.retrieval_mode == "bm25" or settings.embedding_provider == "none":
+            contexts = await _search_bm25(query, k, chunk_types)
+            return _dedupe(contexts)[:k], bool(contexts)
+        return await _search_hybrid(query, k, chunk_types)
+
+    try:
+        return await asyncio.wait_for(_dispatch(), timeout=timeout)
+    except asyncio.TimeoutError as exc:
+        raise ToolTimeoutError(f"检索超时（>{timeout:g}s）") from exc
 
 
 async def _search_knowledge_base_impl(query: str, top_k: int = 5) -> ToolResult:

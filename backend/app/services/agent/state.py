@@ -33,6 +33,9 @@ class AgentState(TypedDict, total=False):
     status: AgentStatus        # 运行状态
     error: str | None          # 失败原因
     usage: dict[str, int]      # token 用量
+    history: list[dict]        # 最近几轮对话（改写与通用回答用）
+    tool_msg_count: int        # 已收集的 ToolMessage 数量（增量收集轨迹）
+    tool_fingerprints: list[str]  # 已执行的「工具+参数」指纹（防重复调用）
 
 
 def initial_state(query: str, history: list[dict] | None = None) -> AgentState:
@@ -49,4 +52,7 @@ def initial_state(query: str, history: list[dict] | None = None) -> AgentState:
         status="ok",
         error=None,
         usage={},
+        history=list(history or []),
+        tool_msg_count=0,
+        tool_fingerprints=[],
     )
