@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await _migrate_message_status(conn)
+        await _migrate_agent_columns(conn)
     await seed_admin()
     # 启动恢复：把上次中断的入库任务标记 failed（可重试），避免卡中间状态
     recovered = await recover_stale_documents()
@@ -83,6 +84,27 @@ async def _migrate_message_status(conn) -> None:
             "COMMENT 'complete=完整 partial=断连截断 error=失败 general=通用闲聊回答(非知识库) fallback=兜底拒答'"
         ))
         log.info("migrate.message_status_extended")
+
+
+async def _migrate_agent_columns(conn) -> None:
+    """幂等迁移：qa_logs 增加 route / tool_count（存量 MySQL 库补齐；新库由模型直接建成）"""
+    if conn.dialect.name != "mysql":
+        return
+    cols = (await conn.execute(text(
+        "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='qa_logs'"
+    ))).scalars().all()
+    if "route" not in cols:
+        await conn.execute(text(
+            "ALTER TABLE qa_logs ADD COLUMN route VARCHAR(16) NULL "
+            "COMMENT '路由/来源：chitchat|kb_simple|business|multi_hop|rag|cache'"
+        ))
+        log.info("migrate.qa_logs_route_added")
+    if "tool_count" not in cols:
+        await conn.execute(text(
+            "ALTER TABLE qa_logs ADD COLUMN tool_count INT NULL COMMENT 'Agent 工具调用步数'"
+        ))
+        log.info("migrate.qa_logs_tool_count_added")
 
 
 async def _refresh_catalog_safe() -> None:

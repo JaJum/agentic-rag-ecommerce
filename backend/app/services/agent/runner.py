@@ -83,5 +83,6 @@ async def run_agent_stream(
             "latency_ms": latency_ms,
             "first_token_ms": first_token_ms,
             "usage": final_state.get("usage") or {},
+            "error": final_state.get("error"),
         },
     }

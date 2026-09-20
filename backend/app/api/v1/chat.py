@@ -17,7 +17,15 @@ from app.core.exceptions import BizError
 from app.core.logging import get_logger
 from app.core.rate_limit import check_rate_limit
 from app.db.base import AsyncSessionLocal, get_db
-from app.db.models import Feedback, Message, MessageCitation, QaLog, User
+from app.db.models import (
+    AgentRun,
+    AgentStep,
+    Feedback,
+    Message,
+    MessageCitation,
+    QaLog,
+    User,
+)
 from app.schemas.chat import ChatStreamRequest, FeedbackIn, SessionIdIn
 from app.services import session_service
 from app.services.agent.runner import run_agent_stream
@@ -101,7 +109,7 @@ async def chat_stream(
         try:
             # ⓪ 精确问答缓存：命中直接回放（方案⑧，重复问题零检索零 LLM）
             cache = get_cache()
-            cache_key = qa_cache_key(body.query)
+            cache_key = qa_cache_key(body.query, history)
             cached = cache.get(cache_key)
             if cached:
                 cached_msg_id = _uuid()
@@ -122,7 +130,8 @@ async def chat_stream(
                 await _persist_citations(cached_msg_id, cached["citations"])
                 latency_ms = int((time.perf_counter() - t_start) * 1000)
                 await _persist_qa_log(user.id, session.id, body.query, cached["rewritten_query"],
-                                      latency_ms, latency_ms, len(cached["citations"]), hit=1)
+                                      latency_ms, latency_ms, len(cached["citations"]), hit=1,
+                                      route=cached.get("route") or "cache", tool_count=0)
                 log.info("chat.cache_hit", user_id=user.id, latency_ms=latency_ms)
                 yield _sse("done", {"message_id": cached_msg_id, "hit": True,
                                     "latency_ms": latency_ms, "cache_hit": True})
@@ -136,6 +145,9 @@ async def chat_stream(
                 agent_route = None
                 agent_steps = 0
                 agent_rewritten = body.query
+                agent_trace: list[dict] = []
+                agent_usage: dict = {}
+                agent_error = None
                 try:
                     yield _sse("meta", {
                         "message_id": assistant_msg_id,
@@ -167,8 +179,12 @@ async def chat_stream(
                             agent_route = data.get("route")
                             agent_steps = data.get("steps") or 0
                             agent_rewritten = data.get("rewritten_query") or body.query
+                            agent_usage = data.get("usage") or {}
+                            agent_error = data.get("error")
                             continue
                         else:
+                            if name in ("step", "tool_call", "tool_result"):
+                                agent_trace.append(_trace_entry(name, data))
                             yield _sse(name, data)
 
                     # 引用列表：编号与最终 Prompt 中的 [n] 一致
@@ -191,6 +207,24 @@ async def chat_stream(
                     cited = set(extract_citations(agent_content, len(citations_meta)))
                     for entry in citations_meta:
                         entry["cited"] = entry["n"] in cited
+
+                    # Agent 失败且无任何产出 → 先记录失败运行，再降级回原 RAG 链路
+                    if agent_status in ("error", "timeout") and not agent_content:
+                        await _persist_agent_run(
+                            run_id=assistant_msg_id,
+                            message_id=assistant_msg_id,
+                            session_id=session.id,
+                            user_id=user.id,
+                            route=agent_route,
+                            status=agent_status,
+                            steps=agent_steps,
+                            latency_ms=int((time.perf_counter() - t_start) * 1000),
+                            first_token_ms=first_token_ms,
+                            token_usage=(agent_usage or {}).get("total_tokens"),
+                            error=agent_error,
+                            trace=agent_trace,
+                        )
+                        raise RuntimeError(f"agent_{agent_status}")
 
                     latency_ms = int((time.perf_counter() - t_start) * 1000)
                     msg_status = {
@@ -228,12 +262,29 @@ async def chat_stream(
                         first_token_ms,
                         len(citations_meta),
                         hit=1 if citations_meta else 0,
+                        route=agent_route or "agent",
+                        tool_count=agent_steps,
+                    )
+                    await _persist_agent_run(
+                        run_id=assistant_msg_id,
+                        message_id=assistant_msg_id,
+                        session_id=session.id,
+                        user_id=user.id,
+                        route=agent_route,
+                        status=agent_status,
+                        steps=agent_steps,
+                        latency_ms=latency_ms,
+                        first_token_ms=first_token_ms,
+                        token_usage=(agent_usage or {}).get("total_tokens"),
+                        error=agent_error,
+                        trace=agent_trace,
                     )
                     if msg_status == "complete":
                         cache.set(cache_key, {
                             "content": agent_content,
                             "citations": citations_meta,
                             "rewritten_query": agent_rewritten,
+                            "route": agent_route or "agent",
                         })
                     log.info("chat.agent_done", route=agent_route, steps=agent_steps,
                              latency_ms=latency_ms, citations=len(citations_meta))
@@ -283,7 +334,8 @@ async def chat_stream(
                 if is_business:
                     yield _sse("fallback", {"reason": "no_relevant_doc", "top_score": top[0]["rerank_score"] if top else None})
                     await _persist_qa_log(user.id, session.id, body.query, rewritten,
-                                          int((time.perf_counter() - t_start) * 1000), None, 0, hit=0)
+                                          int((time.perf_counter() - t_start) * 1000), None, 0, hit=0,
+                                          route="rag", tool_count=0)
                     await _persist_message(session.id, assistant_msg_id, "assistant",
                                            FALLBACK_TEXT, rewritten, [], "fallback", None)
                     yield _sse("done", {"message_id": assistant_msg_id, "hit": False,
@@ -328,7 +380,8 @@ async def chat_stream(
                                        content or FALLBACK_TEXT, rewritten, [], status, token_usage)
                 persisted = True
                 await _persist_qa_log(user.id, session.id, body.query, rewritten,
-                                      latency_ms, first_token_ms, 0, hit=0)
+                                      latency_ms, first_token_ms, 0, hit=0,
+                                      route="rag", tool_count=0)
                 log.info("chat.general", llm_ms=llm_ms, latency_ms=latency_ms, source=answer_source)
                 yield _sse("done", {"message_id": assistant_msg_id, "hit": False,
                                     "answer_source": answer_source, "latency_ms": latency_ms,
@@ -390,13 +443,15 @@ async def chat_stream(
             persisted = True
             await _persist_citations(assistant_msg_id, citations_meta)
             await _persist_qa_log(user.id, session.id, body.query, rewritten,
-                                  latency_ms, first_token_ms, len(top), hit=1)
+                                  latency_ms, first_token_ms, len(top), hit=1,
+                                  route="rag", tool_count=0)
             # 写入问答缓存（仅完整生成，partial 不缓存）
             if status == "complete" and content:
                 cache.set(cache_key, {
                     "content": content,
                     "citations": citations_meta,
                     "rewritten_query": rewritten,
+                    "route": "rag",
                 })
             log.info("chat.done", retrieval_ms=retrieval_ms, rerank_ms=rerank_ms,
                      llm_ms=llm_ms, first_token_ms=first_token_ms, latency_ms=latency_ms)
@@ -554,16 +609,77 @@ async def _persist_citations(message_id: str, citations_meta: list[dict]) -> Non
 
 
 async def _persist_qa_log(user_id, session_id, query, rewritten,
-                          latency_ms, first_token_ms, retrieval_count, hit) -> None:
+                          latency_ms, first_token_ms, retrieval_count, hit,
+                          route=None, tool_count=0) -> None:
     """落库问答日志（仪表盘/性能统计数据源）"""
     async with AsyncSessionLocal() as db:
         db.add(QaLog(
             user_id=user_id, session_id=session_id, query=query,
             rewritten_query=rewritten, latency_ms=latency_ms,
             first_token_ms=first_token_ms, retrieval_count=retrieval_count,
-            hit=hit,
+            hit=hit, route=route, tool_count=tool_count,
         ))
         await db.commit()
+
+
+def _trace_entry(name: str, data: dict) -> dict:
+    """把 SSE 事件归一为一条 AgentStep 轨迹（参数/结果均截断，避免敏感信息入库）"""
+    if name == "tool_call":
+        return {
+            "node": "tool_call",
+            "step_no": int(data.get("step_no") or 0),
+            "tool_name": data.get("tool"),
+            "args_preview": (data.get("args_preview") or "")[:500],
+        }
+    if name == "tool_result":
+        return {
+            "node": "tool_result",
+            "step_no": int(data.get("step_no") or 0),
+            "tool_name": data.get("tool"),
+            "ok": 1 if data.get("ok") else 0,
+            "result_preview": (data.get("summary") or "")[:500],
+        }
+    return {
+        "node": data.get("node") or "step",
+        "step_no": int(data.get("step_no") or 0),
+        "ok": 1 if data.get("status") == "ok" else 0,
+        "result_preview": (data.get("label") or "")[:500],
+    }
+
+
+async def _persist_agent_run(*, run_id, message_id, session_id, user_id, route, status,
+                             steps, latency_ms, first_token_ms, token_usage,
+                             error, trace) -> None:
+    """落库 Agent 运行与轨迹（失败不阻塞主流程）"""
+    try:
+        tool_calls = [
+            {k: t.get(k) for k in ("step_no", "node", "tool_name", "ok")}
+            for t in trace
+            if t.get("node") in ("tool_call", "tool_result")
+        ]
+        async with AsyncSessionLocal() as db:
+            db.add(AgentRun(
+                id=run_id, message_id=message_id, session_id=session_id, user_id=user_id,
+                route=route, status=status or "ok", step_count=int(steps or 0),
+                tool_calls=tool_calls, latency_ms=latency_ms,
+                first_token_ms=first_token_ms, token_usage=token_usage,
+                error=(error or None),
+            ))
+            db.add_all([
+                AgentStep(
+                    run_id=run_id,
+                    step_no=int(t.get("step_no") if t.get("step_no") is not None else i),
+                    node=t.get("node") or "step",
+                    tool_name=t.get("tool_name"),
+                    args_preview=t.get("args_preview"),
+                    result_preview=t.get("result_preview"),
+                    ok=t.get("ok"),
+                )
+                for i, t in enumerate(trace)
+            ])
+            await db.commit()
+    except Exception as exc:  # noqa: BLE001 —— 轨迹落库失败不影响回答
+        log.warning("chat.agent_trace_persist_failed", error=str(exc))
 
 
 async def _check_message_owner(db: AsyncSession, user_id: int, message_id: str) -> Message:

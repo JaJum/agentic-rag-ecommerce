@@ -111,8 +111,20 @@ def get_cache():
     return _cache
 
 
-def qa_cache_key(query: str) -> str:
-    """问答缓存 key：归一化问题 + 索引版本 + 进程种子"""
+def qa_cache_key(query: str, history: list[dict] | None = None) -> str:
+    """问答缓存 key：归一化问题 + 最近历史指纹 + 索引版本 + 进程种子
+
+    历史指纹解决多轮指代问题：同一句「它多少钱」在不同上文下答案不同，
+    不能命中同一个缓存条目。
+    """
     normalized = re.sub(r"\s+", "", query).lower()
-    raw = f"{normalized}|v{_index_version}|{_PROCESS_SEED}"
+    hist_raw = ""
+    for item in (history or [])[-4:]:
+        role = item.get("role") or ""
+        content = re.sub(r"\s+", "", item.get("content") or "")[:200]
+        hist_raw += f"|{role}:{content}"
+    hist_fp = (
+        hashlib.sha256(hist_raw.encode("utf-8")).hexdigest()[:12] if hist_raw else "none"
+    )
+    raw = f"{normalized}|h{hist_fp}|v{_index_version}|{_PROCESS_SEED}"
     return "qa:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()

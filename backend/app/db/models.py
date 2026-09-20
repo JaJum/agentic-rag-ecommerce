@@ -186,9 +186,55 @@ class QaLog(Base):
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="端到端总耗时")
     first_token_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="首 token 延迟（体感指标）")
     retrieval_count: Mapped[Optional[int]] = mapped_column(Integer, comment="命中分块数")
+    tool_count: Mapped[Optional[int]] = mapped_column(Integer, comment="Agent 工具调用步数")
+    route: Mapped[Optional[str]] = mapped_column(
+        String(16), comment="路由/来源：chitchat|kb_simple|business|multi_hop|rag|cache"
+    )
     hit: Mapped[Optional[int]] = mapped_column(Integer, comment="1=命中知识库 0=兜底拒答")
     token_usage: Mapped[Optional[int]] = mapped_column(Integer, comment="token 消耗")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, server_default=func.now())
+
+class AgentRun(Base):
+    """Agent 单次运行记录（M8）：路由、状态、步数、工具调用与耗时，供仪表盘与轨迹回放"""
+
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        Index("ix_agent_runs_created", "created_at"),
+        Index("ix_agent_runs_session", "session_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    message_id: Mapped[Optional[str]] = mapped_column(String(36), index=True, comment="对应的 assistant 消息 id")
+    session_id: Mapped[Optional[str]] = mapped_column(String(36), comment="会话 id")
+    user_id: Mapped[Optional[int]] = mapped_column(BigInteger, comment="提问用户")
+    route: Mapped[Optional[str]] = mapped_column(String(16), comment="路由结果")
+    status: Mapped[str] = mapped_column(String(16), default="ok", comment="ok|fallback|error|timeout")
+    step_count: Mapped[int] = mapped_column(Integer, default=0, comment="工具执行步数")
+    tool_calls: Mapped[Optional[Any]] = mapped_column(JSON, comment="工具调用摘要列表（已脱敏）")
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="端到端耗时")
+    first_token_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="首 token 延迟")
+    token_usage: Mapped[Optional[int]] = mapped_column(Integer, comment="token 消耗")
+    error: Mapped[Optional[str]] = mapped_column(String(500), comment="失败原因（截断）")
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
+
+
+class AgentStep(Base):
+    """Agent 执行轨迹单步（M8/F-04）：节点、工具、参数/结果摘要、耗时"""
+
+    __tablename__ = "agent_steps"
+    __table_args__ = (Index("ix_agent_steps_run", "run_id", "step_no"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(36), comment="agent_runs.id")
+    step_no: Mapped[int] = mapped_column(Integer, default=0, comment="步序号")
+    node: Mapped[str] = mapped_column(String(32), comment="route|agent|tool_call|tool_result|finalize|verify")
+    tool_name: Mapped[Optional[str]] = mapped_column(String(64), comment="工具名")
+    args_preview: Mapped[Optional[str]] = mapped_column(String(500), comment="参数摘要（脱敏截断）")
+    result_preview: Mapped[Optional[str]] = mapped_column(String(500), comment="结果摘要（脱敏截断）")
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="该步耗时（可选）")
+    ok: Mapped[Optional[int]] = mapped_column(Integer, comment="1=成功 0=失败")
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
+
 
 class HandoffTicket(Base):
     """转人工工单（Agent 写工具，AGENT_ALLOW_WRITE_TOOLS=false 时只返回模拟工单号）"""
