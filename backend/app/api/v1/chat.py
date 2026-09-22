@@ -546,6 +546,49 @@ async def export_session(
     return {"markdown": "\n".join(lines)}
 
 
+@router.get("/chat/messages/{message_id}/trace", summary="查询消息的 Agent 执行轨迹")
+async def get_message_trace(
+    message_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """历史消息轨迹回放（F-04）：返回运行摘要与逐步轨迹，无轨迹时 enabled=false"""
+    await _check_message_owner(db, user.id, message_id)
+    run = (await db.execute(
+        select(AgentRun).where(AgentRun.message_id == message_id)
+    )).scalar_one_or_none()
+    if run is None:
+        return {"enabled": False, "steps": []}
+
+    rows = (await db.execute(
+        select(AgentStep).where(AgentStep.run_id == run.id).order_by(AgentStep.id)
+    )).scalars().all()
+    return {
+        "enabled": True,
+        "run": {
+            "id": run.id,
+            "route": run.route,
+            "status": run.status,
+            "step_count": run.step_count,
+            "latency_ms": run.latency_ms,
+            "first_token_ms": run.first_token_ms,
+            "token_usage": run.token_usage,
+            "created_at": run.created_at.isoformat() if run.created_at else None,
+        },
+        "steps": [
+            {
+                "step_no": r.step_no,
+                "node": r.node,
+                "tool_name": r.tool_name,
+                "args_preview": r.args_preview,
+                "result_preview": r.result_preview,
+                "ok": r.ok,
+            }
+            for r in rows
+        ],
+    }
+
+
 # ---------------- 内部工具 ----------------
 
 def _uuid() -> str:

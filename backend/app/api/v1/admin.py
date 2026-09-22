@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_admin
 from app.db.base import get_db
-from app.db.models import Chunk, Document, Feedback, Message, QaLog, User
+from app.db.models import AgentRun, AgentStep, Chunk, Document, Feedback, Message, QaLog, User
 
 router = APIRouter(tags=["管理"])
 
@@ -71,6 +71,38 @@ async def stats(
     )).all()
     trend = [{"date": str(day), "count": cnt} for day, cnt in trend_rows]
 
+    # ---- Agent 指标（M8/F-05）----
+    agent_total = (await db.execute(select(func.count(AgentRun.id)))).scalar() or 0
+    agent_ok = (await db.execute(
+        select(func.count(AgentRun.id)).where(AgentRun.status == "ok")
+    )).scalar() or 0
+    agent_steps_avg = (await db.execute(
+        select(func.avg(AgentRun.step_count)).where(AgentRun.step_count > 0)
+    )).scalar() or 0
+    tool_total = (await db.execute(
+        select(func.count(AgentStep.id)).where(AgentStep.node == "tool_result")
+    )).scalar() or 0
+    tool_ok = (await db.execute(
+        select(func.count(AgentStep.id)).where(
+            AgentStep.node == "tool_result", AgentStep.ok == 1
+        )
+    )).scalar() or 0
+    latencies = (await db.execute(
+        select(AgentRun.latency_ms)
+        .where(AgentRun.latency_ms.isnot(None))
+        .order_by(AgentRun.latency_ms.asc())
+    )).scalars().all()
+    p95 = 0
+    if latencies:
+        idx = min(len(latencies) - 1, int(round(0.95 * (len(latencies) - 1))))
+        p95 = int(latencies[idx] or 0)
+    route_rows = (await db.execute(
+        select(QaLog.route, func.count(QaLog.id).label("cnt"))
+        .where(QaLog.route.isnot(None))
+        .group_by(QaLog.route)
+        .order_by(func.count(QaLog.id).desc())
+    )).all()
+
     return {
         "overview": {
             "user_count": user_count,
@@ -88,4 +120,13 @@ async def stats(
         "top_queries": top_queries,
         "feedback": {"like": like_count, "dislike": dislike_count},
         "trend": trend,
+        "agent": {
+            "runs": agent_total,
+            "success_rate": round(agent_ok / agent_total, 4) if agent_total else 0,
+            "avg_steps": round(float(agent_steps_avg), 2) if agent_steps_avg else 0,
+            "tool_success_rate": round(tool_ok / tool_total, 4) if tool_total else 0,
+            "tool_calls": tool_total,
+            "p95_latency_ms": p95,
+            "routes": [{"route": r, "count": c} for r, c in route_rows],
+        },
     }

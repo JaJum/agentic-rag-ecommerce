@@ -43,6 +43,12 @@
                 知识库未命中
               </el-tag>
               <MarkdownRenderer :content="m.content" @cite="(n) => onCiteClick(m, n)" />
+              <AgentTracePanel
+                v-if="m.trace && m.trace.length"
+                :trace="m.trace"
+                :meta="m.agentMeta"
+                :streaming="m.streaming"
+              />
             </template>
             <div v-else class="user-text">{{ m.content }}</div>
             <!-- 助手消息操作条 -->
@@ -56,6 +62,7 @@
               <el-button v-if="m.citations?.length" link size="small" @click="onCiteClick(m, 1)">
                 引用 {{ m.citations.length }}
               </el-button>
+              <el-button link size="small" @click="onLoadTrace(m)">轨迹</el-button>
             </div>
             <!-- 流式中 -->
             <div v-if="m.streaming" class="streaming-tip">生成中…</div>
@@ -107,6 +114,7 @@ import {
   deleteSession,
   exportSession,
   feedback,
+  getMessageTrace,
   getSessionMessages,
   listSessions,
   renameSession,
@@ -115,6 +123,7 @@ import {
 import { useSSE } from '../../composables/useSSE'
 import MarkdownRenderer from '../../components/chat/MarkdownRenderer.vue'
 import CitationPanel from '../../components/chat/CitationPanel.vue'
+import AgentTracePanel from '../../components/chat/AgentTracePanel.vue'
 
 const { streamChat } = useSSE()
 
@@ -179,6 +188,23 @@ async function onSessionCmd(cmd, s) {
   }
 }
 
+/** 历史消息轨迹回放（F-04）：点击「轨迹」按需加载 */
+async function onLoadTrace(m) {
+  if (m.trace?.length) return
+  try {
+    const res = await getMessageTrace(m.id)
+    if (!res.enabled || !res.steps?.length) {
+      ElMessage.info('该消息没有 Agent 执行轨迹')
+      return
+    }
+    m.trace = res.steps.map((s) => ({ ...s, ok: s.ok == null ? 1 : s.ok }))
+    m.agentMeta = res.run
+    await scrollToBottom()
+  } catch {
+    ElMessage.error('轨迹加载失败')
+  }
+}
+
 /** 发送问题：SSE 流式渲染回答（需求 2） */
 async function onSend() {
   const query = input.value.trim()
@@ -187,7 +213,7 @@ async function onSend() {
 
   // 本地先渲染用户消息 + 助手占位
   const userMsg = { id: 'u' + Date.now(), role: 'user', content: query }
-  const botMsg = { id: 'b' + Date.now(), role: 'assistant', content: '', citations: [], streaming: true }
+  const botMsg = { id: 'b' + Date.now(), role: 'assistant', content: '', citations: [], trace: [], agentMeta: null, streaming: true }
   messages.value.push(userMsg, botMsg)
   streaming.value = true
   activeCitations.value = botMsg.citations
@@ -204,6 +230,32 @@ async function onSend() {
             if (data.answer_source === 'general') botMsg.status = 'general'
           } else if (event === 'citation') {
             botMsg.citations.push(data)
+          } else if (event === 'step') {
+            botMsg.trace.push({
+              node: data.node || 'step',
+              step_no: data.step_no,
+              result_preview: data.label || '',
+              ok: data.status === 'ok' ? 1 : data.status === 'empty' ? 1 : 0
+            })
+            scrollToBottom()
+          } else if (event === 'tool_call') {
+            botMsg.trace.push({
+              node: 'tool_call',
+              step_no: data.step_no,
+              tool_name: data.tool,
+              args_preview: data.args_preview,
+              ok: 1
+            })
+            scrollToBottom()
+          } else if (event === 'tool_result') {
+            botMsg.trace.push({
+              node: 'tool_result',
+              step_no: data.step_no,
+              tool_name: data.tool,
+              result_preview: data.summary,
+              ok: data.ok ? 1 : 0
+            })
+            scrollToBottom()
           } else if (event === 'reasoning') {
             botMsg.content += data.delta // thinking 开启时展示思考过程
           } else if (event === 'token') {
@@ -215,6 +267,13 @@ async function onSend() {
           } else if (event === 'done') {
             botMsg.streaming = false
             botMsg.id = data.message_id
+            if (data.route || data.steps != null) {
+              botMsg.agentMeta = {
+                route: data.route,
+                steps: data.steps,
+                latency_ms: data.latency_ms
+              }
+            }
             if (data.answer_source === 'general') botMsg.status = 'general'
             else if (data.answer_source === 'fallback') botMsg.status = 'fallback'
           } else if (event === 'error') {

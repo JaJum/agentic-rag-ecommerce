@@ -11,16 +11,31 @@
       </el-col>
     </el-row>
 
+    <!-- Agent 指标卡片（F-05） -->
+    <el-row :gutter="16" class="cards">
+      <el-col v-for="c in agentCards" :key="c.label" :span="6">
+        <el-card shadow="hover">
+          <div class="card-value">{{ c.value }}</div>
+          <div class="card-label">{{ c.label }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 图表区 -->
     <el-row :gutter="16" class="charts">
-      <el-col :span="14">
+      <el-col :span="10">
         <el-card header="近 7 日问答量趋势">
           <div ref="trendChart" class="chart"></div>
         </el-card>
       </el-col>
-      <el-col :span="10">
+      <el-col :span="7">
         <el-card header="知识库命中率">
           <div ref="hitChart" class="chart"></div>
+        </el-card>
+      </el-col>
+      <el-col :span="7">
+        <el-card header="Agent 路由分布">
+          <div ref="routeChart" class="chart"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -50,6 +65,7 @@ const trendChart = ref()
 const hitChart = ref()
 const topChart = ref()
 const feedbackChart = ref()
+const routeChart = ref()
 let charts = []
 
 // 概览卡片数据
@@ -61,6 +77,19 @@ const cardList = computed(() => {
     { label: '知识库文档', value: s.overview.document_count },
     { label: '问答次数', value: s.quality.total_queries },
     { label: '命中率', value: (s.quality.hit_rate * 100).toFixed(1) + '%' }
+  ]
+})
+
+// Agent 指标卡片（兼容未产生 Agent 数据的旧库）
+const agentCards = computed(() => {
+  const s = stats.value
+  if (!s) return []
+  const a = s.agent || {}
+  return [
+    { label: 'Agent 运行次数', value: a.runs ?? 0 },
+    { label: '平均工具步数', value: a.avg_steps ?? 0 },
+    { label: '工具成功率', value: ((a.tool_success_rate || 0) * 100).toFixed(1) + '%' },
+    { label: 'P95 延迟', value: (a.p95_latency_ms ?? 0) + 'ms' }
   ]
 })
 
@@ -126,7 +155,25 @@ function renderCharts() {
     }]
   })
 
-  charts = [trend, hit, top, fb]
+  // 5. Agent 路由分布（环形图）
+  const ROUTE_LABEL = {
+    chitchat: '闲聊', kb_simple: '单跳知识', business: '业务办理',
+    multi_hop: '多跳对比', rag: '原 RAG', cache: '缓存', agent: 'Agent'
+  }
+  const route = echarts.init(routeChart.value)
+  route.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0 },
+    series: [{
+      type: 'pie', radius: ['40%', '65%'],
+      data: (s.agent?.routes || []).map((r) => ({
+        name: ROUTE_LABEL[r.route] || r.route,
+        value: r.count
+      }))
+    }]
+  })
+
+  charts = [trend, hit, top, fb, route]
 }
 </script>
 
