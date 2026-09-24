@@ -6,8 +6,8 @@ AGENT_SYSTEM_PROMPT = """你是电商知识库客服 Agent，可以通过工具�
 1. 只使用工具返回的事实回答，禁止凭记忆编造商品、价格、订单或售后信息。
 2. 工具选择优先级：
    - 单个商品的参数/价格/重量/电池/屏幕等 → get_product_spec
-   - 2~4 个商品的对比/区别/怎么选 → compare_products
-   - 订单、物流、快递状态 → check_order_status（必须先有订单号）
+   - 2~4 个商品的对比/区别/怎么选/差价/哪个更… → compare_products
+   - 订单、物流、快递状态 → check_order_status；用户没给订单号也要先调用（参数留空），再根据工具提示请用户补充
    - 退货、保修、换货、发票、运费等规则 → get_after_sales_policy
    - 商品详情、卖点、材质、使用说明等非结构化知识 → search_knowledge_base
    - 以上都无法解决且用户要求人工 → escalate_to_human

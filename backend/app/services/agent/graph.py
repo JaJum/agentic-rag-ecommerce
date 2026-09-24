@@ -25,7 +25,12 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.services.agent.prompts import AGENT_SYSTEM_PROMPT
 from app.services.agent.state import AgentState
-from app.services.agent.tools import ALL_TOOLS, _dedupe, _search_contexts
+from app.services.agent.tools import (
+    ALL_TOOLS,
+    EMPTY_RESULT_TEXT,
+    _dedupe,
+    _search_contexts,
+)
 from app.services.agent.trace import preview
 from app.services.bm25_index import bm25_index
 from app.services.llm import get_llm
@@ -38,7 +43,16 @@ log = get_logger(__name__)
 # 路由规则
 _ORDER_HINT = re.compile(r"(订单|物流|快递|发货|签收|运单|到哪了)", re.IGNORECASE)
 _ORDER_ID = re.compile(r"ORD-\d{8}-\d{4}", re.IGNORECASE)
-_COMPARE_HINT = re.compile(r"(对比|比较|区别|差异|哪个好|怎么选|选哪个|\bvs\b)", re.IGNORECASE)
+# 售后/交易流程：走 Agent 工具（政策检索 / 工单），而非单跳 RAG
+_AFTERSALES_HINT = re.compile(
+    r"(退货|退款|换货|退换|保修|质保|三包|售后|维修|发票|价保|以旧换新)",
+    re.IGNORECASE,
+)
+_COMPARE_HINT = re.compile(
+    r"(对比|比较|区别|差异|哪个.{0,6}(?:更|最)|哪款.{0,6}(?:更|最)|怎么选|选哪个|差价|差多少|相差"
+    r"|更值得|更划算|哪个好|\bvs\b|还是|比价|(?<!价)比.{0,10}(?:贵|便宜|高|低|大|小|重|轻|强|快))",
+    re.IGNORECASE,
+)
 _CHITCHAT = re.compile(
     r"^\s*(你好|您好|hi|hello|嗨|在吗|谢谢|再见|你是谁|你能做什么)[!！。？?~\s]*$",
     re.IGNORECASE,
@@ -87,7 +101,7 @@ def classify_route(query: str, rewritten: str = "") -> str:
     text = f"{query} {rewritten}".strip()
     if _CHITCHAT.match(query or ""):
         return "chitchat"
-    if _ORDER_ID.search(text) or _ORDER_HINT.search(text):
+    if _ORDER_ID.search(text) or _ORDER_HINT.search(text) or _AFTERSALES_HINT.search(text):
         return "business"
     if _COMPARE_HINT.search(text):
         return "multi_hop"
@@ -276,6 +290,17 @@ async def finalize_node(state: AgentState, config: RunnableConfig) -> dict[str, 
     writer = _writer()
     contexts = state.get("contexts") or []
     if not contexts:
+        # 工具失败但返回了可读的澄清/校验信息（如缺订单号、商品不存在）→ 直接转述
+        events = state.get("tool_events") or []
+        last = events[-1] if events else None
+        if (
+            last
+            and not last.get("ok")
+            and last.get("summary")
+            and last["summary"] != EMPTY_RESULT_TEXT
+        ):
+            writer({"event": "token", "data": {"delta": last["summary"]}})
+            return {"answer": last["summary"], "status": "ok"}
         writer({"event": "fallback", "data": {"reason": "no_relevant_doc"}})
         return {"answer": FALLBACK_TEXT, "status": "fallback"}
 

@@ -75,7 +75,14 @@ def test_classify_route():
     assert classify_route("你好") == "chitchat"
     assert classify_route("星河 X5 多少钱") == "kb_simple"
     assert classify_route("对比星河 X5 和 X5 Pro") == "multi_hop"
+    assert classify_route("星河 X6 和 X6 Pro 哪个电池更大") == "multi_hop"
+    assert classify_route("风语者 Air 和 Air Pro 差价多少") == "multi_hop"
+    assert classify_route("星河平板 T10 和 T11 哪个更值得买") == "multi_hop"
+    assert classify_route("X5 Pro 比 X5 贵多少") == "multi_hop"
+    assert classify_route("这款性价比高吗") == "kb_simple"
     assert classify_route("订单 ORD-20261101-0001 到哪了") == "business"
+    assert classify_route("商品支持7天无理由退货吗") == "business"
+    assert classify_route("保修期是多久") == "business"
     assert classify_route("今天天气怎么样") == "chitchat"
 
 
@@ -219,3 +226,25 @@ async def test_graph_stops_at_max_steps(monkeypatch):
     assert llm.calls == 3  # 第 3 次决策被步数上限截断，不再执行工具
     assert len([ev for ev in events if ev["event"] == "tool_call"]) == 2
     assert done["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_finalize_clarifies_when_tool_returns_validation_message():
+    from app.services.agent.graph import finalize_node
+
+    state = {
+        "query": "我的订单到哪了",
+        "rewritten": "我的订单到哪了",
+        "contexts": [],
+        "tool_events": [{
+            "step_no": 1,
+            "tool": "check_order_status",
+            "ok": False,
+            "summary": "订单号格式不正确，请提供形如 ORD-20261101-0001 的订单号。",
+        }],
+        "steps": 1,
+        "usage": {},
+    }
+    result = await finalize_node(state, {})
+    assert result["status"] == "ok"
+    assert "订单号" in result["answer"]
