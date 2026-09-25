@@ -1,8 +1,6 @@
 """安全与防护单元测试（M6 验收：auth + 敏感词 + 注入拦截）"""
-import time
 
 import pytest
-
 from app.core.exceptions import AuthError, BizError
 from app.core.security import create_access_token, decode_token, hash_password, verify_password
 from app.utils.sensitive import check_sensitive, clean_input

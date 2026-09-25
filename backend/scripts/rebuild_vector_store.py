@@ -14,12 +14,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy import select  # noqa: E402
-
 from app.db.base import AsyncSessionLocal  # noqa: E402
 from app.db.models import Document  # noqa: E402
 from app.services import vector_store  # noqa: E402
 from app.services.rag.ingest import run_ingest  # noqa: E402
+from sqlalchemy import select  # noqa: E402
 
 
 def reset_chroma() -> None:

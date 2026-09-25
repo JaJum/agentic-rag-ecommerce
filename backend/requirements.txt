@@ -17,6 +17,7 @@ structlog>=24.1                  # 结构化日志（trace_id 贯穿）
 # --- 数据库 ---
 SQLAlchemy>=2.0                  # ORM，异步会话
 aiomysql>=0.3                    # MySQL 异步驱动（PyPI 最高 0.3.x）
+aiosqlite>=0.20                  # Lite/CI：SQLite 异步驱动（无 MySQL 也能跑）
 greenlet>=3.0                    # SQLAlchemy async 依赖
 
 # --- 认证 ---

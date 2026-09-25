@@ -7,10 +7,7 @@
 输出：控制台 + docs/07-检索对比实验报告.md
 """
 import asyncio
-import sys
 import time
-
-from sqlalchemy import select
 
 from app.core.config import PROJECT_ROOT
 from app.db.base import AsyncSessionLocal
@@ -19,6 +16,7 @@ from app.services import vector_store
 from app.services.bm25_index import bm25_index
 from app.services.rag.retrieval import hybrid_search, rerank_top
 from app.services.rag.rewrite import rewrite_query
+from sqlalchemy import select
 
 K = 5  # 评测截断 @5
 
@@ -136,7 +134,7 @@ async def main() -> None:
         print(f"  {name:14s} 命中率@{K}={hit:.1%}  MRR@{K}={mrr:.3f}  ({time.perf_counter()-t0:.1f}s)")
 
     # ================= 实验二：查询改写对比 =================
-    print(f"\n实验二：查询改写 on/off（5 条多轮指代问题）")
+    print("\n实验二：查询改写 on/off（5 条多轮指代问题）")
     ranks_no, ranks_yes = [], []
     rewrite_examples = []
     for case in MULTITURN:
@@ -164,7 +162,7 @@ def _build_report(exp1, no_rw, yes_rw, examples) -> str:
         "# 检索对比实验报告",
         "",
         "> 生成脚本：`backend/experiments/eval_retrieval.py`（可重复运行）",
-        f"> 评测集：单轮问题 23 条（覆盖参数表/FAQ/详情文案三类知识块）+ 多轮指代问题 5 条",
+        "> 评测集：单轮问题 23 条（覆盖参数表/FAQ/详情文案三类知识块）+ 多轮指代问题 5 条",
         f"> 指标：命中率@{K}（预期知识块进入 top-{K}）、MRR@{K}（首个相关结果排名倒数均值）",
         "",
         "## 实验一：检索模式对比（23 条单轮问题）",
@@ -198,7 +196,7 @@ def _build_report(exp1, no_rw, yes_rw, examples) -> str:
         "## 结论",
         "",
         f"1. 单路检索存在互补性：纯 BM25 命中率 {exp1['纯BM25'][0]:.1%}（同义表述弱），纯向量 {exp1['纯向量'][0]:.1%}（关键词精确匹配排序弱，MRR {exp1['纯向量'][1]:.3f}），混合 RRF 融合取长补短，MRR 达 {exp1['混合检索RRF'][1]:.3f}（相关块全部前移至第 1 位）。",
-        f"2. rerank 精排在 MRR 已饱和时仍提供校准相关性分数——它是兜底拒答阈值判定（0.05）的依据，保证知识库外问题不编造。",
+        "2. rerank 精排在 MRR 已饱和时仍提供校准相关性分数——它是兜底拒答阈值判定（0.05）的依据，保证知识库外问题不编造。",
         f"3. 查询改写将多轮指代问题命中率从 {no_rw[0]:.1%} 提升至 {yes_rw[0]:.1%}（MRR {no_rw[1]:.3f} → {yes_rw[1]:.3f}），是会话式问答的关键组件。",
         "",
     ]

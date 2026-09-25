@@ -1,12 +1,11 @@
 """智能兜底测试（M7 后增强）：业务问题拒答 / 闲聊通用回答的分类与消息组装"""
-from langchain_core.messages import HumanMessage, SystemMessage
-
 from app.services.rag.fallback import (
     GENERAL_SYSTEM_PROMPT,
     is_business_query,
     make_general_messages,
 )
 from app.services.rag.generation import FALLBACK_TEXT
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # 业务域问题（商品/参数/价格/售后/品牌）→ 必须拒答，防止编造
 BUSINESS_QUERIES = [

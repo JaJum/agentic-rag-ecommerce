@@ -12,22 +12,23 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import (
-    BigInteger,
+    JSON,
     DateTime,
     Enum,
     Float,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     func,
 )
-from sqlalchemy.dialects.mysql import DATETIME, MEDIUMTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.compat import BigInt as BigInteger
+from app.db.compat import LongText as MEDIUMTEXT
+from app.db.compat import Ts6 as DATETIME
 
 
 def gen_uuid() -> str:
@@ -57,8 +58,8 @@ class ChatSession(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(128), default="新会话", comment="会话标题（默认取首问截断）")
-    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
-    updated_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6), onupdate=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(DATETIME, default=datetime.now, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DATETIME, default=datetime.now, server_default=func.now(), onupdate=datetime.now)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, comment="软删标记")
 
 
@@ -80,7 +81,7 @@ class Message(Base):
         default="complete",
         comment="complete=完整 partial=断连截断 error=失败 general=通用闲聊回答(非知识库) fallback=兜底拒答",
     )
-    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
+    created_at: Mapped[datetime] = mapped_column(DATETIME, default=datetime.now, server_default=func.now())
 
 
 class Document(Base):
@@ -215,7 +216,7 @@ class AgentRun(Base):
     first_token_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="首 token 延迟")
     token_usage: Mapped[Optional[int]] = mapped_column(Integer, comment="token 消耗")
     error: Mapped[Optional[str]] = mapped_column(String(500), comment="失败原因（截断）")
-    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
+    created_at: Mapped[datetime] = mapped_column(DATETIME, default=datetime.now, server_default=func.now())
 
 
 class AgentStep(Base):
@@ -233,7 +234,7 @@ class AgentStep(Base):
     result_preview: Mapped[Optional[str]] = mapped_column(String(500), comment="结果摘要（脱敏截断）")
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, comment="该步耗时（可选）")
     ok: Mapped[Optional[int]] = mapped_column(Integer, comment="1=成功 0=失败")
-    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
+    created_at: Mapped[datetime] = mapped_column(DATETIME, default=datetime.now, server_default=func.now())
 
 
 class HandoffTicket(Base):
@@ -250,4 +251,4 @@ class HandoffTicket(Base):
     status: Mapped[str] = mapped_column(
         Enum("open", "closed", name="handoff_status"), default="open", comment="工单状态"
     )
-    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=datetime.now, server_default=func.now(6))
+    created_at: Mapped[datetime] = mapped_column(DATETIME, default=datetime.now, server_default=func.now())

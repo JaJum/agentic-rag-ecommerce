@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.core.exceptions import BizError, biz_error_handler, generic_error_handler
 from app.core.logging import get_logger, setup_logging
 from app.db.base import AsyncSessionLocal, Base, engine
-from app.db.models import Chunk
+from app.db.models import Chunk, Document
 from app.db.seed import seed_admin
 from app.services import embeddings, reranker
 from app.services.agent.catalog import refresh_catalog
@@ -39,9 +39,14 @@ async def lifespan(app: FastAPI):
     await seed_admin()
     # 启动恢复：把上次中断的入库任务标记 failed（可重试），避免卡中间状态
     recovered = await recover_stale_documents()
-    # 预热 BGE-M3 + reranker（常驻单例，避免首请求冷启动；M5 压测教训：reranker 也要预热）
-    await asyncio.to_thread(embeddings.get_embedding_model)
-    await asyncio.to_thread(reranker.get_reranker)
+    if settings.vector_enabled:
+        # 预热 BGE-M3 + reranker（常驻单例，避免首请求冷启动；M5 压测教训：reranker 也要预热）
+        await asyncio.to_thread(embeddings.get_embedding_model)
+        await asyncio.to_thread(reranker.get_reranker)
+    else:
+        # Lite 模式：不加载本地模型，BM25 检索 + Mock LLM 即可跑通全链路
+        log.info("app.lite_mode", retrieval_mode=settings.retrieval_mode,
+                 embedding_provider=settings.embedding_provider, mock_llm=settings.mock_llm)
     await rebuild_bm25_on_startup()
     await _refresh_catalog_safe()
     log.info("app.started", llm_model=settings.llm_model, thinking=settings.llm_enable_thinking, recovered=recovered)
@@ -72,6 +77,8 @@ async def _migrate_message_status(conn) -> None:
     幂等迁移：messages.status 枚举扩展 general/fallback（智能兜底，2026-11-09）。
     create_all 不会修改已存在的表，故存量库在此补齐；新库由模型定义直接建成。
     """
+    if conn.dialect.name != "mysql":
+        return
     col = (await conn.execute(text(
         "SELECT COLUMN_TYPE FROM information_schema.COLUMNS "
         "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='messages' AND COLUMN_NAME='status'"
@@ -117,10 +124,26 @@ async def _refresh_catalog_safe() -> None:
 
 
 async def rebuild_bm25_on_startup() -> None:
-    """启动时从 MySQL chunks 全量重建 BM25 索引（进程内索引，重启即重建）"""
+    """启动时从 chunks 表全量重建 BM25 索引（进程内索引，重启即重建）"""
     async with AsyncSessionLocal() as session:
-        rows = (await session.execute(select(Chunk.id, Chunk.text))).all()
-    bm25_index.rebuild([(r.id, r.text) for r in rows])
+        rows = (await session.execute(
+            select(Chunk.id, Chunk.text, Chunk.chunk_type, Chunk.doc_id, Chunk.meta, Document.orig_name)
+            .join(Document, Chunk.doc_id == Document.id)
+        )).all()
+    bm25_index.rebuild([
+        (
+            r.id,
+            r.text,
+            {
+                "chunk_id": r.id,
+                "doc_id": r.doc_id,
+                "doc_name": r.orig_name,
+                "chunk_type": r.chunk_type,
+                **(r.meta or {}),
+            },
+        )
+        for r in rows
+    ])
 
 
 @app.middleware("http")

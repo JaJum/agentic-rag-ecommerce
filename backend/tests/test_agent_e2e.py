@@ -2,13 +2,12 @@
 import asyncio
 
 import pytest
-from langchain_core.messages import AIMessageChunk
-
 from app.core.config import get_settings
 from app.services.agent import graph as graph_mod
 from app.services.agent import runner as runner_mod
 from app.services.agent.runner import run_agent_stream
 from app.services.rag.generation import FALLBACK_TEXT
+from langchain_core.messages import AIMessageChunk
 
 CONTEXT = {
     "chunk_id": "c1",

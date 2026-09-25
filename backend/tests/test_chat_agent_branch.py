@@ -3,10 +3,9 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import AIMessageChunk
-
 from app.api.v1 import chat as chat_mod
 from app.schemas.chat import ChatStreamRequest
+from langchain_core.messages import AIMessageChunk
 
 TOP = [
     {

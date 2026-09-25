@@ -1,15 +1,14 @@
 """Agent 基座单测：脱敏、预览、上下文规范化、检索工具契约。"""
 import pytest
-
 from app.services.agent import tools as agent_tools
 from app.services.agent.state import initial_state
-from app.services.agent.trace import mask_sensitive, preview
 from app.services.agent.tools import (
     EMPTY_RESULT_TEXT,
     _search_knowledge_base_impl,
     format_contexts,
     make_context,
 )
+from app.services.agent.trace import mask_sensitive, preview
 
 
 def test_mask_sensitive_phone_email_order():

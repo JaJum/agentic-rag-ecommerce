@@ -32,7 +32,6 @@ from app.services.agent.tools import (
     _search_contexts,
 )
 from app.services.agent.trace import preview
-from app.services.bm25_index import bm25_index
 from app.services.llm import get_llm
 from app.services.rag.fallback import is_business_query, make_general_messages
 from app.services.rag.generation import FALLBACK_TEXT, extract_citations, make_messages

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from sqlalchemy import delete, select
 
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.db.base import AsyncSessionLocal
 from app.db.models import Chunk, Document
@@ -67,11 +68,15 @@ async def run_ingest(doc_id: str) -> None:
 
             # 5. 向量化：BGE-M3 批量 → Chroma（幂等：先删该文档旧向量再写）
             await _set_stage(session, doc, "embedding", 85)
-            ids = [c["id"] for c in chunks]
-            texts = [c["text"] for c in chunks]
-            metadatas = [_flat_meta(doc, c) for c in chunks]
-            await asyncio.to_thread(vector_store.delete_by_doc, doc.id)
-            await asyncio.to_thread(vector_store.add_chunks, ids, texts, metadatas)
+            if get_settings().vector_enabled:
+                ids = [c["id"] for c in chunks]
+                texts = [c["text"] for c in chunks]
+                metadatas = [_flat_meta(doc, c) for c in chunks]
+                await asyncio.to_thread(vector_store.delete_by_doc, doc.id)
+                await asyncio.to_thread(vector_store.add_chunks, ids, texts, metadatas)
+            else:
+                # Lite 模式：不写向量库，BM25 单路检索（chunks 表仍是 source of truth）
+                log.info("ingest.embedding_skipped", doc_id=doc.id)
 
             # 6. 索引：BM25 全量重建（source of truth = MySQL chunks 表）
             await _set_stage(session, doc, "indexing", 95)
@@ -101,11 +106,26 @@ async def _set_stage(session, doc: Document, status: str, progress: int) -> None
 
 
 async def _rebuild_bm25(session) -> None:
-    """从 MySQL chunks 全量重建 BM25（同步计算放线程池）"""
-    rows = (await session.execute(select(Chunk.id, Chunk.text))).all()
-    await asyncio.to_thread(
-        bm25_index.bm25_index.rebuild, [(r.id, r.text) for r in rows]
-    )
+    """从 chunks 表全量重建 BM25（带 meta，Lite 模式单路检索可直接出引用）"""
+    rows = (await session.execute(
+        select(Chunk.id, Chunk.text, Chunk.chunk_type, Chunk.doc_id, Chunk.meta, Document.orig_name)
+        .join(Document, Chunk.doc_id == Document.id)
+    )).all()
+    pairs = [
+        (
+            r.id,
+            r.text,
+            {
+                "chunk_id": r.id,
+                "doc_id": r.doc_id,
+                "doc_name": r.orig_name,
+                "chunk_type": r.chunk_type,
+                **(r.meta or {}),
+            },
+        )
+        for r in rows
+    ]
+    await asyncio.to_thread(bm25_index.bm25_index.rebuild, pairs)
 
 
 def _flat_meta(doc: Document, chunk: dict) -> dict:

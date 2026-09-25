@@ -27,8 +27,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.services.agent.runner import run_agent_stream  # noqa: E402
 from app.services import embeddings, reranker  # noqa: E402
+from app.services.agent.runner import run_agent_stream  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = ROOT / "sample_data" / "agent_cases.jsonl"

@@ -13,7 +13,7 @@ from app.core.deps import require_admin
 from app.core.exceptions import BizError
 from app.db.base import get_db
 from app.db.models import Chunk, Document, User, gen_uuid
-from app.schemas.document import ChunkOut, ChunkPageOut, DocumentOut
+from app.schemas.document import ChunkPageOut, DocumentOut
 from app.services import tasks, vector_store
 from app.services.cache import bump_index_version
 from app.services.rag.ingest import UPLOAD_DIR

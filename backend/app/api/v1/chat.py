@@ -29,7 +29,7 @@ from app.db.models import (
 from app.schemas.chat import ChatStreamRequest, FeedbackIn, SessionIdIn
 from app.services import session_service
 from app.services.agent.runner import run_agent_stream
-from app.services.cache import bump_index_version, get_cache, qa_cache_key
+from app.services.cache import get_cache, qa_cache_key
 from app.services.llm import get_llm
 from app.services.rag.fallback import is_business_query, make_general_messages
 from app.services.rag.generation import (

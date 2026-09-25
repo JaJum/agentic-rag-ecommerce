@@ -1,6 +1,6 @@
 """会话/问答相关 Pydantic 模型"""
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 

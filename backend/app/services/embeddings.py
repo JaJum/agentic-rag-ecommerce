@@ -25,6 +25,10 @@ _model = None  # 常驻单例
 def get_embedding_model():
     """获取（或首次加载）Embedding 模型单例"""
     global _model
+    if get_settings().embedding_provider == "none":
+        raise RuntimeError(
+            "EMBEDDING_PROVIDER=none：Lite 模式不加载本地 Embedding，请配合 RETRIEVAL_MODE=bm25 使用"
+        )
     if _model is None:
         from langchain_huggingface import HuggingFaceEmbeddings
 

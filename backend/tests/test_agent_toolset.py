@@ -1,6 +1,5 @@
 """Agent 工具集单测：商品目录、参数查询、对比、订单、售后、转人工。"""
 import pytest
-
 from app.services.agent import tools as agent_tools
 from app.services.agent.catalog import get_catalog, reset_catalog
 from app.services.agent.tools import (

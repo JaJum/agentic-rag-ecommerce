@@ -1,7 +1,5 @@
 """LangGraph 状态机单测：路由、步数上限、端到端事件流（假 LLM）。"""
 import pytest
-from langchain_core.messages import AIMessage, AIMessageChunk
-
 from app.services.agent import graph as graph_mod
 from app.services.agent.catalog import get_catalog, reset_catalog
 from app.services.agent.graph import (
@@ -11,6 +9,7 @@ from app.services.agent.graph import (
     route_after_agent,
 )
 from app.services.agent.runner import run_agent_stream
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 PRODUCTS = [
     {

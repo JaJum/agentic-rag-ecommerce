@@ -2,6 +2,9 @@
 混合检索与重排（M4，企业级检索核心）：
 BM25 关键词 ⊕ Chroma 向量语义 → RRF 融合 → bge-reranker 精排 → 阈值判定。
 权重与阈值均可 .env 调节（论文可做消融实验）。
+
+Lite 模式（RETRIEVAL_MODE=bm25）：只走 BM25，不加载向量模型与重排模型，
+用 BM25 分数排序代替精排——牺牲部分语义召回，换取「无 GPU/无 Key 也能跑」。
 """
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -22,6 +25,9 @@ def hybrid_search(query: str) -> list[dict]:
     """
     settings = get_settings()
     k = settings.retrieval_k
+
+    if settings.retrieval_mode == "bm25":
+        return _bm25_search(query, k)
 
     # 双路各取 top-k
     bm25_hits = bm25_index.search(query, k=k)                    # [(chunk_id, score)]
@@ -52,15 +58,56 @@ def hybrid_search(query: str) -> list[dict]:
     return candidates
 
 
+def _bm25_search(query: str, k: int) -> list[dict]:
+    """
+    Lite 模式：BM25 单路检索，直接从索引取原文与元数据。
+    额外用「查询词覆盖率」做相关性代理：BM25 只要有一个词命中就有分，
+    会把「小米14 电池容量」这种库外问题误判为命中，故要求覆盖率不低于阈值。
+    """
+    settings = get_settings()
+    query_tokens = set(bm25_index.tokenize(query))
+    hits = bm25_index.search(query, k=k)
+    candidates: list[dict] = []
+    for cid, score in hits:
+        doc = bm25_index.get_doc(cid)
+        if not doc:
+            continue
+        text, meta = doc
+        doc_tokens = set(bm25_index.tokenize(text))
+        coverage = len(query_tokens & doc_tokens) / len(query_tokens) if query_tokens else 0.0
+        if coverage < settings.bm25_min_coverage:
+            continue
+        candidates.append(
+            {
+                "chunk_id": cid,
+                "text": text,
+                "meta": meta,
+                "bm25_score": score,
+                "rrf_score": score,  # 单路时直接以 BM25 分排序
+                "coverage": round(coverage, 3),
+            }
+        )
+    candidates.sort(key=lambda c: c["bm25_score"], reverse=True)
+    log.info("retrieval.bm25_only", hits=len(hits), candidates=len(candidates))
+    return candidates
+
+
 def rerank_top(query: str, candidates: list[dict]) -> list[dict]:
     """
     bge-reranker 精排：对融合候选打分重排，返回 top_n（附 rerank_score）。
-    性能（M5）：重排输入截断 top 10（RRF 已按融合分排序），降低 GPU 负载。
+    Lite 模式下跳过重排，用 BM25 分数代替 rerank_score（字段语义保持一致）。
     """
     settings = get_settings()
     top_n = settings.rerank_top_n
     if not candidates:
         return []
+    if settings.retrieval_mode == "bm25":
+        ranked = sorted(candidates, key=lambda c: c.get("bm25_score", 0.0), reverse=True)
+        for c in ranked:
+            c["rerank_score"] = c.get("bm25_score", 0.0)
+        log.info("retrieval.bm25_rank", top_score=ranked[0]["rerank_score"] if ranked else None)
+        return ranked[:top_n]
+
     candidates = candidates[:10]
     scores = rerank_scores(query, [c["text"] for c in candidates])
     for c, s in zip(candidates, scores):
@@ -72,6 +119,12 @@ def rerank_top(query: str, candidates: list[dict]) -> list[dict]:
 
 
 def is_relevant(top: list[dict]) -> bool:
-    """阈值判定：最高分低于阈值视为知识库未覆盖 → 兜底拒答"""
-    threshold = get_settings().rerank_threshold
+    """
+    阈值判定：最高分低于阈值视为知识库未覆盖 → 兜底拒答。
+    Lite 模式没有 reranker 的可比分数，BM25 已过滤 0 分项，故非空即视为相关。
+    """
+    settings = get_settings()
+    if settings.retrieval_mode == "bm25":
+        return bool(top)
+    threshold = settings.rerank_threshold
     return bool(top) and top[0]["rerank_score"] >= threshold

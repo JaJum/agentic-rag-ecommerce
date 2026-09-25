@@ -71,6 +71,7 @@ class Settings(BaseSettings):
 
     # ---------- 可复现性 / Lite 模式 ----------
     retrieval_mode: str = "hybrid"            # hybrid | bm25
+    bm25_min_coverage: float = 0.75          # Lite 模式关键词覆盖率阈值（低于视为未命中）
     embedding_provider: str = "local"         # local | api | none
     mock_llm: bool = False                    # 无 Key 演示 / CI
     db_url: str = Field("", validation_alias="DATABASE_URL")  # 覆盖连接串（如 SQLite）
@@ -79,6 +80,11 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = False
     langsmith_api_key: str = ""
     langsmith_project: str = "agentic-rag-ecommerce"
+
+    @property
+    def vector_enabled(self) -> bool:
+        # Lite 模式（RETRIEVAL_MODE=bm25 或 EMBEDDING_PROVIDER=none）不加载向量与本地模型
+        return self.retrieval_mode != "bm25" and self.embedding_provider != "none"
 
     @property
     def database_url(self) -> str:

@@ -18,13 +18,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy import delete, select  # noqa: E402
-
 from app.db.base import AsyncSessionLocal, Base, engine  # noqa: E402
 from app.db.models import Chunk, Document, gen_uuid  # noqa: E402
 from app.services import vector_store  # noqa: E402
 from app.services.rag.ingest import UPLOAD_DIR, run_ingest  # noqa: E402
 from app.utils.file_utils import stored_name  # noqa: E402
+from sqlalchemy import delete, select  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG_DIR = ROOT / "sample_data" / "demo_catalog"

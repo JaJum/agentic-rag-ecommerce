@@ -19,7 +19,6 @@ from app.core.logging import get_logger
 from app.services.agent.catalog import get_catalog, match_fields, refresh_catalog
 from app.services.agent.handoff import create_handoff
 from app.services.agent.orders import find_order, format_order, is_valid_order_id
-from app.services.bm25_index import bm25_index
 from app.services.rag.retrieval import hybrid_search, is_relevant, rerank_top
 
 log = get_logger(__name__)
@@ -148,30 +147,6 @@ async def _search_hybrid(
         return [make_context(c, "search_knowledge_base") for c in candidates[:k]], True
 
 
-async def _search_bm25(
-    query: str, k: int, chunk_types: set[str] | None = None
-) -> list[dict[str, Any]]:
-    """BM25 单路检索（RETRIEVAL_MODE=bm25 / 无 embedding 时使用）"""
-    hits = bm25_index.search(query, k=k * 3 if chunk_types else k)
-    if not hits:
-        return []
-    rows = await _fetch_chunks([cid for cid, _ in hits])
-    score_map = dict(hits)
-    ordered: list[dict[str, Any]] = []
-    for cid, _ in hits:
-        row = rows.get(cid)
-        if not row:
-            continue
-        if chunk_types and row.get("chunk_type") not in chunk_types:
-            continue
-        ordered.append(
-            make_context({**row, "bm25_score": score_map.get(cid, 0.0)}, "search_knowledge_base")
-        )
-        if len(ordered) >= k:
-            break
-    return ordered
-
-
 async def _search_contexts(
     query: str, k: int, chunk_types: set[str] | None = None
 ) -> tuple[list[dict[str, Any]], bool]:
@@ -180,9 +155,7 @@ async def _search_contexts(
     timeout = float(settings.agent_tool_timeout_s or 8)
 
     async def _dispatch():
-        if settings.retrieval_mode == "bm25" or settings.embedding_provider == "none":
-            contexts = await _search_bm25(query, k, chunk_types)
-            return _dedupe(contexts)[:k], bool(contexts)
+        # 模式差异（hybrid / bm25-only）由 retrieval 层统一处理，避免两套检索逻辑漂移
         return await _search_hybrid(query, k, chunk_types)
 
     try:
