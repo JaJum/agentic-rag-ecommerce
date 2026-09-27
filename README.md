@@ -1,110 +1,199 @@
-# LangChain RAG 电商知识库问答系统
+# Agentic RAG 电商智能客服
 
-基于 LangChain 的 RAG 企业级知识库问答系统（毕业设计）。用户在浏览器中对电商商品知识库提问，回答引用知识库片段并支持溯源查看。
+> 基于 **LangGraph + LangChain** 的电商知识库智能客服：把「RAG 问答」升级成「会选工具、会多步查询、可回放轨迹」的 Agent 应用。
+> 独立完成：Agent 编排、6 个业务工具、数据生成、评测集、前后端与可复现 Lite 模式。
 
-## 技术栈
+<p>
+  <b>77</b> 个后端测试 ｜ <b>48</b> 条 Agent 评测用例 ｜ 工具选择准确率 <b>100%</b> ｜ 任务完成率 <b>97.9%</b>
+</p>
 
-| 层 | 选型 |
+<details>
+<summary>English Abstract</summary>
+
+An Agentic RAG customer-service prototype for e-commerce. A LangGraph state machine routes each question to chit-chat, a fast RAG path, or a tool-using agent; the agent calls 6 business tools (knowledge search, product specs, comparison, order status, after-sales policy, human handoff), and every step is persisted and replayable in the UI. Ships with a reproducible 72-product / 164-chunk dataset, a 48-case evaluation suite, and a one-command offline Lite mode (SQLite + BM25 + mock LLM) that needs no API key, GPU, or MySQL.
+
+</details>
+
+## 1. 项目亮点
+
+- **Agentic RAG 编排**：`route → general_chat / rag_fast / agent ⇄ tools → collect → finalize → verify`，单跳问题走快速路径，业务/多跳问题才进工具循环。
+- **6 个业务工具**：知识库检索、商品参数、商品对比、订单查询、售后政策、转人工；工具失败返回澄清文案而不是硬报错。
+- **可控性优先**：最大工具步数、整体超时、单工具超时、重复工具调用过滤、引用编号校验、Agent 异常自动降级回原 RAG。
+- **可观测**：每次运行的 `agent_runs / agent_steps` 落库，SSE 实时推送 `step / tool_call / tool_result / token / citation`，历史消息可回放轨迹，Dashboard 展示路由分布、工具成功率与 P95。
+- **可复现**：固定种子生成 72 商品 / 6 品类 / 164 chunks；48 条评测集覆盖闲聊、单跳、多跳、业务办理、库外拒答、Prompt 注入、多轮指代。
+- **零依赖演示**：`python scripts/demo.py` 一条命令跑通全链路（SQLite + BM25 + Mock LLM），不需要 API Key、GPU、MySQL。
+
+## 2. 架构
+
+```mermaid
+flowchart LR
+    U[Vue3 前端] -->|HTTP / SSE| API[FastAPI]
+    API --> R{route 路由}
+    R -->|闲聊| G[general_chat]
+    R -->|单跳知识| F[rag_fast]
+    R -->|业务 / 多跳| A[agent]
+
+    F --> RET[混合检索<br/>BM25 + 向量 + RRF + Rerank]
+    A <-->|tool_calls| T[ToolNode]
+    T --> T1[search_knowledge_base]
+    T --> T2[get_product_spec]
+    T --> T3[compare_products]
+    T --> T4[check_order_status]
+    T --> T5[get_after_sales_policy]
+    T --> T6[escalate_to_human]
+
+    T1 --> RET
+    T2 --> CAT[(商品目录<br/>参数块)]
+    T3 --> CAT
+    T4 --> ORD[(订单 Mock)]
+    T5 --> RET
+    T6 --> HO[(转人工工单)]
+
+    RET --> VDB[(Chroma)]
+    RET --> BM25[(BM25 索引)]
+    RET --> DB[(MySQL / SQLite<br/>chunks = source of truth)]
+
+    A --> FIN[finalize 生成]
+    F --> FIN
+    FIN --> VER[verify 引用校验]
+    VER --> API
+    API -->|agent_runs / agent_steps| DB
+```
+
+**关键设计**：`chunks` 表是检索的唯一事实来源，Chroma 与 BM25 都是可重建的衍生索引；工具产出是回答引用的唯一来源，节点不允许凭空追加知识块。
+
+## 3. Agent 工具
+
+| 工具 | 作用 | 典型问题 |
+|---|---|---|
+| `search_knowledge_base` | 知识库混合检索（带引用） | 「风语者 Air Pro 续航多久」 |
+| `get_product_spec` | 按商品名查结构化参数，支持字段过滤 | 「星河 X5 的电池容量」 |
+| `compare_products` | 2~4 个商品参数对比表 | 「星河 X5 和轻羽 14 有什么区别」 |
+| `check_order_status` | 订单/物流查询（手机号脱敏） | 「ORD-20261101-0001 到哪了」 |
+| `get_after_sales_policy` | 售后 FAQ 检索 | 「支持七天无理由退货吗」 |
+| `escalate_to_human` | 生成转人工工单（默认模拟） | 「我要投诉，转人工」 |
+
+## 4. 评测结果
+
+数据集：`cases-48 / products-72`，可复现（固定随机种子）。完整报告见 [`docs/09-Agent评测报告.md`](docs/09-Agent评测报告.md)。
+
+| 指标 | 数值 |
 |---|---|
-| AI 框架 | LangChain 0.3.x（Python，LCEL） |
-| 后端 | Python 3.12 + FastAPI + SQLAlchemy 2.x（异步）+ MySQL 8 |
-| LLM | 阿里云百炼 qwen3.8-flash（OpenAI 兼容模式，可切换） |
-| Embedding / Rerank | BGE-M3 / bge-reranker-v2-m3（本地 GPU） |
-| 向量库 | Chroma（内嵌持久化） |
-| 前端 | Vue3 + Vite + Element Plus + Pinia |
+| 路由准确率 | 100.0% |
+| 工具选择准确率 | 100.0% |
+| 任务完成率 | 97.9%（47/48） |
+| 库外拒答正确率 | 100.0%（6/6） |
+| 注入攻击拦截 | 100.0%（4/4） |
+| 平均工具步数 | 0.62 |
+| P50 / P95 延迟 | 2832 ms / 9543 ms |
 
-## 环境要求
+唯一失败案例 C48（耳机降噪能力对比）保留在报告中：`compare_products` 只读结构化参数，而降噪结论存在于商品详情散文中。这是工具覆盖面不足的真实局限，没有通过修改评测标准来"美化"。
 
-- Python 3.12+、Node.js 24+、MySQL 8.0（本机运行，不用 Docker）
-- 可选：NVIDIA GPU（本地 Embedding/Rerank 加速）
+## 5. 快速开始
 
-## 快速启动
-
-**一键启动（推荐）**：双击项目根目录 `start.bat`，会自动打开两个窗口分别运行后端与前端；停止服务时关闭两个窗口即可。
-
-手动启动（两个终端分别执行）：
-
-### 1. 后端
+### 方式 A：Lite 模式（推荐先跑这个，无需任何外部依赖）
 
 ```bash
 cd backend
-pip install -r requirements.txt        # 核心依赖（M3 再装 requirements-ai.txt）
-python -m uvicorn app.main:app --reload --port 8000
+pip install -r requirements.txt
+python scripts/demo.py
 ```
 
-启动时自动建表并写入管理员种子。验证：http://127.0.0.1:8000/api/v1/health
-Swagger 文档：http://127.0.0.1:8000/docs
+一条命令完成：建 SQLite 库 → 灌入 3 份演示文档（164 chunks）→ 构建 BM25 → 跑 6 条覆盖不同路由的问答并打印轨迹。
 
-### 2. 前端
+技术开关：`DATABASE_URL=sqlite` + `RETRIEVAL_MODE=bm25` + `EMBEDDING_PROVIDER=none` + `MOCK_LLM=true`。
+
+### 方式 B：完整栈（MySQL + 本地 Embedding + 真实 LLM）
+
+```powershell
+# Windows 一键启动（后端 8000 + 前端 5173）
+.\start.ps1
+# 或 Lite 演示
+.\start.ps1 -Lite
+# 停止后台服务
+.\stop.ps1
+```
+
+手动启动：
 
 ```bash
+# 后端
+cd backend
+pip install -r requirements.txt
+pip install -r requirements-ai.txt   # BGE-M3 / reranker（需要 GPU 可选）
+python -m uvicorn app.main:app --reload --port 8000
+
+# 前端
 cd frontend
 npm install
 npm run dev
 ```
 
-访问：http://localhost:5173
+- 前端：http://localhost:5173
+- 健康检查：http://127.0.0.1:8000/api/v1/health
+- Swagger：http://127.0.0.1:8000/docs
 
-## 配置
+复制 `.env.example` 为 `.env` 后填写 `DASHSCOPE_API_KEY`、MySQL 与 `SECRET_KEY`。默认管理员 `admin / 123456`（演示密码，请修改）。
 
-复制 `.env.example` 为 `.env` 并填写（`.env` 已被 `.gitignore` 排除，勿提交）：
+## 6. 可复现与测试
 
-| 变量 | 说明 |
-|---|---|
-| `DASHSCOPE_API_KEY` | 阿里云百炼 API Key |
-| `LLM_BASE_URL` / `LLM_MODEL` | OpenAI 兼容接口地址 / 模型名 |
-| `LLM_ENABLE_THINKING` | 思考模式（默认 false，保证首字延迟） |
-| `MYSQL_*` | MySQL 连接信息 |
-| `SECRET_KEY` | JWT 签名密钥 |
+```bash
+# 生成演示商品数据（固定种子）
+cd backend && python scripts/generate_catalog.py
 
-## 默认账号
+# 灌入知识库（会走真实分块链路）
+python scripts/seed_demo.py --reset
 
-| 账号 | 密码 | 权限 |
-|---|---|---|
-| admin | 123456 | 管理员（知识库管理 + 仪表盘） |
+# Agent 评测（输出 docs/09-Agent评测报告.md + JSON）
+python scripts/eval_agent.py
 
-> 演示初始密码，答辩后请修改。
+# 单元测试 / 静态检查
+python -m pytest tests -q
+ruff check backend
+```
 
-## 目录结构
+CI（GitHub Actions）在 Lite 模式下执行 ruff + pytest + demo 冒烟，并构建前端。
+
+## 7. 目录结构
 
 ```
 LangchainRAG项目/
-├── backend/               # FastAPI 后端
+├── backend/
 │   ├── app/
-│   │   ├── api/v1/        # 路由（health → M1 起陆续加 auth/sessions/chat/documents）
-│   │   ├── core/          # 配置 / 日志 / 异常
-│   │   ├── db/            # ORM 模型 / 连接池 / 种子
-│   │   ├── schemas/       # Pydantic 模型
-│   │   └── services/      # 业务服务（rag/ 为 RAG 核心链路）
-│   ├── tests/             # 单元测试
-│   └── data/              # 上传文件 / Chroma / 模型缓存
-├── frontend/              # Vue3 前端
-├── docs/                  # 项目文档（01-项目方案计划.md 等）
-├── .env                   # 本地配置（不进 git）
-└── .env.example           # 配置模板
+│   │   ├── api/v1/           # auth / sessions / chat / documents / admin
+│   │   ├── core/             # 配置、日志、限流、安全
+│   │   ├── db/               # ORM、跨库类型适配（MySQL / SQLite）
+│   │   ├── services/
+│   │   │   ├── agent/        # LangGraph 图、工具、轨迹、目录、订单、转人工
+│   │   │   └── rag/          # 分块、检索、重排、生成、兜底、改写
+│   │   └── main.py
+│   ├── scripts/              # 数据生成、灌库、评测、Lite 演示
+│   └── tests/                # 77 个单元/集成测试
+├── frontend/                 # Vue3 + Element Plus + ECharts
+├── sample_data/              # 商品目录、评测集、订单 Mock
+├── docs/                     # 方案、测试报告、评测报告、设计取舍
+├── .github/workflows/ci.yml  # ruff + pytest + demo + 前端 build
+└── start.ps1 / stop.ps1      # Windows 启停脚本
 ```
 
-## 测试与实验
-
-```bash
-# 单元测试（27 个用例）
-cd backend && python -m pytest tests/ -q
-
-# 检索对比实验（论文/答辩数据，输出 docs/07-检索对比实验报告.md）
-cd backend && python -m experiments.eval_retrieval
-```
-
-## 文档索引
+## 8. 文档
 
 | 文档 | 内容 |
 |---|---|
-| `docs/01-项目方案计划.md` | 技术选型、架构、功能、里程碑（v0.3） |
-| `docs/05-测试报告.md` | 单元测试/功能验收/性能压测结果 |
-| `docs/07-检索对比实验报告.md` | 检索模式对比 + 查询改写对比（实验脚本自动产出） |
-| `docs/08-答辩演示脚本.md` | 5 分钟演示流程 + 预设 Q&A |
+| [`docs/01-项目方案计划.md`](docs/01-项目方案计划.md) | 技术选型、架构、里程碑 |
+| [`docs/05-测试报告.md`](docs/05-测试报告.md) | 77 个测试、功能验收、性能压测 |
+| [`docs/07-检索对比实验报告.md`](docs/07-检索对比实验报告.md) | 检索模式与查询改写对比实验 |
+| [`docs/09-Agent评测报告.md`](docs/09-Agent评测报告.md) | Agent 指标、分类型结果、失败案例 |
+| [`docs/设计取舍.md`](docs/设计取舍.md) | 为什么用 LangGraph、为什么保留快慢路径、为什么不做多 Agent |
 
-## 开发里程碑
+## 9. 已知限制
 
-M0 脚手架 ✅ → M1 用户体系 ✅ → M2 文档入库 ✅ → M3 向量化/索引 ✅ → M4 问答闭环 ✅ → M5 性能套件 ✅ → M6 扩展功能+质量 ✅ → M7 收尾 ✅
+1. 评测集为自建 48 条，规模有限；任务完成判定基于关键词/路由/工具子集匹配，非人工逐条评分。
+2. 自建评测集在迭代中修复过路由规则，存在一定过拟合风险；未做多模型对比与方差统计。
+3. Lite 模式用 BM25 + 关键词覆盖率代理相关性，语义召回弱于向量检索，属于离线演示的取舍。
+4. 结构化对比只覆盖参数表字段，商品详情中的主观描述（如降噪能力）暂无法对比（C48）。
+5. 单机部署，未做多实例水平扩展；缓存与任务队列可平移到 Redis/Celery。
 
-详见 `docs/01-项目方案计划.md`。
+## 10. License
+
+MIT，见 [`LICENSE`](LICENSE)。
