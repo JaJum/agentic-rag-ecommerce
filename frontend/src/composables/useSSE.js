@@ -33,6 +33,8 @@ export function useSSE() {
       const { done, value } = await reader.read()
       if (done) break
       buffer += decoder.decode(value, { stream: true })
+      // 兼容 sse-starlette 默认输出的 CRLF 帧分隔符
+      buffer = buffer.replace(/\r\n/g, '\n')
       // SSE 帧以空行分隔；最后一段可能不完整，留在 buffer 里
       const frames = buffer.split('\n\n')
       buffer = frames.pop() ?? ''

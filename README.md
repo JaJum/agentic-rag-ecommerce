@@ -23,7 +23,40 @@ An Agentic RAG customer-service prototype for e-commerce. A LangGraph state mach
 - **可复现**：固定种子生成 72 商品 / 6 品类 / 164 chunks；48 条评测集覆盖闲聊、单跳、多跳、业务办理、库外拒答、Prompt 注入、多轮指代。
 - **零依赖演示**：`python scripts/demo.py` 一条命令跑通全链路（SQLite + BM25 + Mock LLM），不需要 API Key、GPU、MySQL。
 
-## 2. 架构
+## 2. 界面演示
+
+<p align="center">
+  <img src="docs/images/demo.gif" alt="90 秒端到端演示：多跳对比、Agent 轨迹、仪表盘与引用溯源" width="960">
+</p>
+
+<p align="center"><sub>90 秒实录：输入问题 → SSE 流式回答 → 展开工具轨迹 → 查看 Agent 指标 → 引用原文 → 知识库管理</sub></p>
+
+<details>
+<summary><b>展开 3 张关键界面截图</b></summary>
+
+### Agent 执行轨迹
+
+多跳问题会触发 `compare_products`、`get_product_spec`、`search_knowledge_base`，每一步的节点、参数、结果与耗时都可展开查看。
+
+![Agent 执行轨迹](docs/images/01-chat-agent-trace.png)
+
+### Agent 运行指标
+
+Dashboard 展示 Agent 运行次数、平均工具步数、工具成功率、P95 延迟与路由分布。
+
+![Agent 运行指标](docs/images/02-dashboard-agent-metrics.png)
+
+### 引用溯源
+
+回答中的 `[n]` 可回链到原始知识块，展示来源文件、相关度与原文片段。
+
+![引用溯源](docs/images/03-citation-trace.png)
+
+</details>
+
+---
+
+## 3. 架构
 
 ```mermaid
 flowchart LR
@@ -62,7 +95,7 @@ flowchart LR
 
 **关键设计**：`chunks` 表是检索的唯一事实来源，Chroma 与 BM25 都是可重建的衍生索引；工具产出是回答引用的唯一来源，节点不允许凭空追加知识块。
 
-## 3. Agent 工具
+## 4. Agent 工具
 
 | 工具 | 作用 | 典型问题 |
 |---|---|---|
@@ -73,7 +106,7 @@ flowchart LR
 | `get_after_sales_policy` | 售后 FAQ 检索 | 「支持七天无理由退货吗」 |
 | `escalate_to_human` | 生成转人工工单（默认模拟） | 「我要投诉，转人工」 |
 
-## 4. 评测结果
+## 5. 评测结果
 
 数据集：`cases-48 / products-72`，可复现（固定随机种子）。完整报告见 [`docs/09-Agent评测报告.md`](docs/09-Agent评测报告.md)。
 
@@ -89,7 +122,7 @@ flowchart LR
 
 唯一失败案例 C48（耳机降噪能力对比）保留在报告中：`compare_products` 只读结构化参数，而降噪结论存在于商品详情散文中。这是工具覆盖面不足的真实局限，没有通过修改评测标准来"美化"。
 
-## 5. 快速开始
+## 6. 快速开始
 
 ### 方式 A：Lite 模式（推荐先跑这个，无需任何外部依赖）
 
@@ -135,7 +168,7 @@ npm run dev
 
 复制 `.env.example` 为 `.env` 后填写 `DASHSCOPE_API_KEY`、MySQL 与 `SECRET_KEY`。默认管理员 `admin / 123456`（演示密码，请修改）。
 
-## 6. 可复现与测试
+## 7. 可复现与测试
 
 ```bash
 # 生成演示商品数据（固定种子）
@@ -154,7 +187,7 @@ ruff check backend
 
 CI（GitHub Actions）在 Lite 模式下执行 ruff + pytest + demo 冒烟，并构建前端。
 
-## 7. 目录结构
+## 8. 目录结构
 
 ```
 LangchainRAG项目/
@@ -176,7 +209,7 @@ LangchainRAG项目/
 └── start.ps1 / stop.ps1      # Windows 启停脚本
 ```
 
-## 8. 文档
+## 9. 文档
 
 | 文档 | 内容 |
 |---|---|
@@ -186,7 +219,7 @@ LangchainRAG项目/
 | [`docs/09-Agent评测报告.md`](docs/09-Agent评测报告.md) | Agent 指标、分类型结果、失败案例 |
 | [`docs/设计取舍.md`](docs/设计取舍.md) | 为什么用 LangGraph、为什么保留快慢路径、为什么不做多 Agent |
 
-## 9. 已知限制
+## 10. 已知限制
 
 1. 评测集为自建 48 条，规模有限；任务完成判定基于关键词/路由/工具子集匹配，非人工逐条评分。
 2. 自建评测集在迭代中修复过路由规则，存在一定过拟合风险；未做多模型对比与方差统计。
@@ -194,6 +227,6 @@ LangchainRAG项目/
 4. 结构化对比只覆盖参数表字段，商品详情中的主观描述（如降噪能力）暂无法对比（C48）。
 5. 单机部署，未做多实例水平扩展；缓存与任务队列可平移到 Redis/Celery。
 
-## 10. License
+## 11. License
 
 MIT，见 [`LICENSE`](LICENSE)。
