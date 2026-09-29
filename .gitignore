@@ -2,6 +2,11 @@
 .env
 .env.local
 
+# AI 辅助生成的规划/报告（仅保留本地，不进入公开仓库）
+plan.md
+docs/*.md
+docs/*.json
+
 # Python
 __pycache__/
 *.pyc
@@ -26,11 +31,6 @@ backend/data/
 .idea/
 .vscode/
 .DS_Store
-
-# 测试/工具缓存
-.pytest_cache/
-.ruff_cache/
-*.log
 
 # 测试/工具缓存
 .pytest_cache/

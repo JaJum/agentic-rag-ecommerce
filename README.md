@@ -108,7 +108,7 @@ flowchart LR
 
 ## 5. 评测结果
 
-数据集：`cases-48 / products-72`，可复现（固定随机种子）。完整报告见 [`docs/09-Agent评测报告.md`](docs/09-Agent评测报告.md)。
+数据集：`cases-48 / products-72`，可复现（固定随机种子）。评测结果可由 `python backend/scripts/eval_agent.py` 重新生成，唯一失败案例 C48 在下方说明。
 
 | 指标 | 数值 |
 |---|---|
@@ -177,7 +177,7 @@ cd backend && python scripts/generate_catalog.py
 # 灌入知识库（会走真实分块链路）
 python scripts/seed_demo.py --reset
 
-# Agent 评测（输出 docs/09-Agent评测报告.md + JSON）
+# Agent 评测（生成本地评测结果）
 python scripts/eval_agent.py
 
 # 单元测试 / 静态检查
@@ -204,20 +204,20 @@ LangchainRAG项目/
 │   └── tests/                # 77 个单元/集成测试
 ├── frontend/                 # Vue3 + Element Plus + ECharts
 ├── sample_data/              # 商品目录、评测集、订单 Mock
-├── docs/                     # 方案、测试报告、评测报告、设计取舍
+├── docs/images/              # README 截图与 90 秒演示 GIF
 ├── .github/workflows/ci.yml  # ruff + pytest + demo + 前端 build
 └── start.ps1 / stop.ps1      # Windows 启停脚本
 ```
 
-## 9. 文档
+## 9. 核心代码入口
 
-| 文档 | 内容 |
-|---|---|
-| [`docs/01-项目方案计划.md`](docs/01-项目方案计划.md) | 技术选型、架构、里程碑 |
-| [`docs/05-测试报告.md`](docs/05-测试报告.md) | 77 个测试、功能验收、性能压测 |
-| [`docs/07-检索对比实验报告.md`](docs/07-检索对比实验报告.md) | 检索模式与查询改写对比实验 |
-| [`docs/09-Agent评测报告.md`](docs/09-Agent评测报告.md) | Agent 指标、分类型结果、失败案例 |
-| [`docs/设计取舍.md`](docs/设计取舍.md) | 为什么用 LangGraph、为什么保留快慢路径、为什么不做多 Agent |
+| 模块 | 路径 | 内容 |
+|---|---|---|
+| Agent 编排 | [`backend/app/services/agent/graph.py`](backend/app/services/agent/graph.py) | LangGraph 状态机、路由、工具循环与降级 |
+| 工具实现 | [`backend/app/services/agent/tools.py`](backend/app/services/agent/tools.py) | 6 个业务工具与参数校验 |
+| 轨迹持久化 | [`backend/app/services/agent/trace.py`](backend/app/services/agent/trace.py) | `agent_runs / agent_steps` 写入与回放 |
+| Agent 评测 | [`backend/scripts/eval_agent.py`](backend/scripts/eval_agent.py) | 48 条用例、指标计算与失败案例输出 |
+| 轨迹前端 | [`frontend/src/components/chat/AgentTracePanel.vue`](frontend/src/components/chat/AgentTracePanel.vue) | 节点、工具、参数、结果与耗时时间线 |
 
 ## 10. 已知限制
 
