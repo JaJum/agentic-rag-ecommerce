@@ -2,7 +2,6 @@
 .env
 .env.local
 
-# AI 辅助生成的规划/报告（仅保留本地，不进入公开仓库）
 plan.md
 docs/*.md
 docs/*.json
