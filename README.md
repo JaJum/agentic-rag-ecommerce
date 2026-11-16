@@ -1,11 +1,18 @@
-# Agentic RAG 电商智能客服
+<h1 align="center">Agentic RAG 电商智能客服</h1>
 
-[![CI](https://github.com/JaJum/agentic-rag-ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/JaJum/agentic-rag-ecommerce/actions/workflows/ci.yml)
+<p align="center">
+  基于 <b>LangGraph + LangChain</b> 的电商知识库智能客服：把「RAG 问答」升级成「会选工具、会多步查询、可回放轨迹」的 Agent 应用。<br>
+  独立完成：Agent 编排、6 个业务工具、数据生成、评测集、前后端与可复现 Lite 模式。
+</p>
 
-> 基于 **LangGraph + LangChain** 的电商知识库智能客服：把「RAG 问答」升级成「会选工具、会多步查询、可回放轨迹」的 Agent 应用。
-> 独立完成：Agent 编排、6 个业务工具、数据生成、评测集、前后端与可复现 Lite 模式。
+<p align="center">
+  <a href="https://github.com/JaJum/agentic-rag-ecommerce/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JaJum/agentic-rag-ecommerce/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/JaJum/agentic-rag-ecommerce?color=green"></a>
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
+  <img alt="Node.js 20" src="https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white">
+</p>
 
-<p>
+<p align="center">
   <b>81</b> 个后端测试 ｜ <b>48</b> 条 Agent 评测用例 ｜ 工具选择准确率 <b>100%</b> ｜ 任务完成率 <b>97.9%</b>
 </p>
 
