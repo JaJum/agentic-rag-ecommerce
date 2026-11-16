@@ -79,7 +79,7 @@ def test_classify_route():
     assert classify_route("星河平板 T10 和 T11 哪个更值得买") == "multi_hop"
     assert classify_route("X5 Pro 比 X5 贵多少") == "multi_hop"
     assert classify_route("这款性价比高吗") == "kb_simple"
-    assert classify_route("订单 ORD-20261101-0001 到哪了") == "business"
+    assert classify_route("订单 ORD-20260905-0001 到哪了") == "business"
     assert classify_route("商品支持7天无理由退货吗") == "business"
     assert classify_route("保修期是多久") == "business"
     assert classify_route("今天天气怎么样") == "chitchat"
@@ -239,7 +239,7 @@ async def test_finalize_clarifies_when_tool_returns_validation_message():
             "step_no": 1,
             "tool": "check_order_status",
             "ok": False,
-            "summary": "订单号格式不正确，请提供形如 ORD-20261101-0001 的订单号。",
+            "summary": "订单号格式不正确，请提供形如 ORD-20260905-0001 的订单号。",
         }],
         "steps": 1,
         "usage": {},

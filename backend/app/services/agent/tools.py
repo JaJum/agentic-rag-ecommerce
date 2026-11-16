@@ -298,7 +298,7 @@ async def _check_order_status_impl(order_id: str) -> ToolResult:
     """check_order_status 的实际实现"""
     oid = (order_id or "").strip()
     if not is_valid_order_id(oid):
-        return "订单号格式不正确，请提供形如 ORD-20261101-0001 的订单号。", {
+        return "订单号格式不正确，请提供形如 ORD-20260905-0001 的订单号。", {
             "contexts": [],
             "error": "invalid_order_id",
         }
@@ -415,7 +415,7 @@ async def compare_products(
 async def check_order_status(order_id: str) -> ToolResult:
     """查询订单状态与物流信息（演示数据，只读）。
 
-    仅当用户提供了订单号（形如 ORD-20261101-0001）时使用。
+    仅当用户提供了订单号（形如 ORD-20260905-0001）时使用。
     不要猜测订单号，也不要查询他人订单。
 
     Check order status and logistics by order ID (demo data, read-only).

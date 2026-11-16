@@ -53,7 +53,7 @@ def test_bm25_search_filters_out_of_catalog_product(monkeypatch):
 async def test_mock_llm_one_tool_call_then_citation():
     """Mock LLM：首轮产出工具调用，拿到工具结果后给出带 [1] 的回答"""
     model = MockChatModel().bind_tools([object()])
-    question = HumanMessage(content="ORD-20261101-0001 的物流到哪了？")
+    question = HumanMessage(content="ORD-20260905-0001 的物流到哪了？")
 
     first = await model.ainvoke([question])
     assert first.tool_calls and first.tool_calls[0]["name"] == "check_order_status"

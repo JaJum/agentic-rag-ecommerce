@@ -104,7 +104,7 @@ flowchart LR
 | `search_knowledge_base` | 知识库混合检索（带引用） | 「风语者 Air Pro 续航多久」 |
 | `get_product_spec` | 按商品名查结构化参数，支持字段过滤 | 「星河 X5 的电池容量」 |
 | `compare_products` | 2~4 个商品参数对比表 | 「星河 X5 和轻羽 14 有什么区别」 |
-| `check_order_status` | 订单/物流查询（手机号脱敏） | 「ORD-20261101-0001 到哪了」 |
+| `check_order_status` | 订单/物流查询（手机号脱敏） | 「ORD-20260905-0001 到哪了」 |
 | `get_after_sales_policy` | 售后 FAQ 检索 | 「支持七天无理由退货吗」 |
 | `escalate_to_human` | 生成转人工工单（默认模拟） | 「我要投诉，转人工」 |
 

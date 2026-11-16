@@ -12,11 +12,11 @@ from app.services.agent.trace import mask_sensitive, preview
 
 
 def test_mask_sensitive_phone_email_order():
-    text = "联系 13812345678 / user@example.com，订单 ORD-20261110-0001"
+    text = "联系 13812345678 / user@example.com，订单 ORD-20260905-0001"
     masked = mask_sensitive(text)
     assert "138****5678" in masked
     assert "use***@example.com" in masked
-    assert "ORD-20261110-****01" in masked
+    assert "ORD-20260905-****01" in masked
     assert "13812345678" not in masked
 
 

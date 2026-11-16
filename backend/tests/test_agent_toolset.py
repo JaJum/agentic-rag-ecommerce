@@ -91,7 +91,7 @@ async def test_compare_products_requires_two():
 
 @pytest.mark.asyncio
 async def test_order_status_masks_phone():
-    content, artifact = await _check_order_status_impl("ORD-20261101-0001")
+    content, artifact = await _check_order_status_impl("ORD-20260905-0001")
     assert "已签收" in content
     assert "138****5678" in content
     assert "13812345678" not in content
