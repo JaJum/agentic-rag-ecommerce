@@ -1,4 +1,4 @@
-"""智能兜底测试（M7 后增强）：业务问题拒答 / 闲聊通用回答的分类与消息组装"""
+"""智能兜底测试：业务问题拒答 / 闲聊通用回答的分类与消息组装"""
 from app.services.rag.fallback import (
     GENERAL_SYSTEM_PROMPT,
     is_business_query,

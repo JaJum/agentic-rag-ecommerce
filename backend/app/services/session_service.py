@@ -1,4 +1,4 @@
-"""会话业务逻辑：多用户多会话管理（需求 3/4），数据按 user_id 隔离"""
+"""会话业务逻辑：多用户多会话管理，数据按 user_id 隔离"""
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +42,7 @@ async def rename_session(db: AsyncSession, session: ChatSession, title: str) -> 
 
 
 async def soft_delete_session(db: AsyncSession, session: ChatSession) -> None:
-    """软删会话（历史保留，可找回；需求 4）"""
+    """软删会话（历史保留，可找回）"""
     from datetime import datetime
 
     session.deleted_at = datetime.now()
@@ -63,7 +63,7 @@ async def touch_session(db: AsyncSession, session_id: str) -> None:
 async def list_messages(db: AsyncSession, session_id: str, limit: int = 200) -> list[dict]:
     """
     历史消息（含引用，按时间升序）。
-    引用读 messages.citations JSON 冗余快照（文档删除后仍可回放，需求 4）。
+    引用读 messages.citations JSON 冗余快照（文档删除后仍可回放）。
     """
     result = await db.execute(
         select(Message)

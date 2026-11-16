@@ -1,4 +1,4 @@
-"""检索组件单元测试（M6 验收：BM25 分词检索 + RRF 融合逻辑）"""
+"""检索组件单元测试（BM25 分词检索 + RRF 融合逻辑）"""
 from app.services.bm25_index import Bm25Index
 
 

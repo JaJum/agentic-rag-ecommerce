@@ -1,4 +1,4 @@
-"""认证接口：注册 / 登录 / 修改密码 / 当前用户信息（需求 5）"""
+"""认证接口：注册 / 登录 / 修改密码 / 当前用户信息"""
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 

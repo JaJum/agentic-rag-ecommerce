@@ -2,7 +2,7 @@
 Rerank 分发层：local=本地 bge-reranker-v2-m3，api=通用 /rerank 接口，none=跳过精排。
 对融合候选重新打分，显著提升检索质量（企业级检索标志性组件）。
 local 模式模型经 ModelScope 下载在本地（.env: RERANK_MODEL 路径）。
-M5：GPU 推理加锁串行化——并发请求排队而非 CUDA 抖动，降低 P95 尾延迟。
+GPU 推理加锁串行化——并发请求排队而非 CUDA 抖动，降低 P95 尾延迟。
 """
 import threading
 

@@ -1,5 +1,5 @@
 <template>
-  <!-- Agent 执行轨迹面板（F-01）：节点/工具/参数/结果/耗时，默认折叠 -->
+  <!-- Agent 执行轨迹面板：节点/工具/参数/结果/耗时，默认折叠 -->
   <div class="trace-panel">
     <div class="trace-head" @click="expanded = !expanded">
       <el-icon class="chev" :class="{ open: expanded }"><ArrowRight /></el-icon>

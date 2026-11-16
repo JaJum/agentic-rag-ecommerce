@@ -1,5 +1,5 @@
 <template>
-  <!-- 注册页：用户名/密码/确认密码 → POST /auth/register（需求 5） -->
+  <!-- 注册页：用户名/密码/确认密码 → POST /auth/register -->
   <div class="page-center">
     <el-card class="box">
       <h2 class="title">注册</h2>

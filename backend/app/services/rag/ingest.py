@@ -83,7 +83,7 @@ async def run_ingest(doc_id: str) -> None:
             await _rebuild_bm25(session)
 
             await _set_stage(session, doc, "completed", 100)
-            bump_index_version()  # 索引变化 → 问答缓存 key 失效（M5）
+            bump_index_version()  # 索引变化 → 问答缓存 key 失效
             # 参数块变化 → 刷新 Agent 商品目录（失败不影响入库结果）
             try:
                 from app.services.agent.catalog import refresh_catalog

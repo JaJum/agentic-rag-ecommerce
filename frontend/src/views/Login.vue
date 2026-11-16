@@ -1,5 +1,5 @@
 <template>
-  <!-- 登录页：用户名/密码 → JWT 持久化 → 进入问答（需求 5） -->
+  <!-- 登录页：用户名/密码 → JWT 持久化 → 进入问答 -->
   <div class="page-center">
     <el-card class="box">
       <h2 class="title">登录</h2>

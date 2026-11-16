@@ -34,7 +34,7 @@ async def authenticate(db: AsyncSession, username: str, password: str) -> User:
 async def change_password(
     db: AsyncSession, user: User, old_password: str, new_password: str
 ) -> None:
-    """修改密码：校验原密码后写入新哈希（需求 5）"""
+    """修改密码：校验原密码后写入新哈希"""
     if not verify_password(old_password, user.password_hash):
         raise BizError("原密码错误", code="WRONG_OLD_PASSWORD")
     if old_password == new_password:

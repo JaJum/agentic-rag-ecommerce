@@ -1,5 +1,5 @@
 <template>
-  <!-- 统计仪表盘（仅 admin，M6）：概览卡片 + 问答趋势/Top 查询/反馈图表 -->
+  <!-- 统计仪表盘（仅 admin）：概览卡片 + 问答趋势/Top 查询/反馈图表 -->
   <div class="page">
     <!-- 概览指标卡片 -->
     <el-row :gutter="16" class="cards">
@@ -11,7 +11,7 @@
       </el-col>
     </el-row>
 
-    <!-- Agent 指标卡片（F-05） -->
+    <!-- Agent 指标卡片 -->
     <el-row :gutter="16" class="cards">
       <el-col v-for="c in agentCards" :key="c.label" :span="6">
         <el-card shadow="hover">
@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-// 仪表盘：GET /admin/stats → ECharts 四图（需求 8 + M6 验收：与 qa_logs 一致）
+// 仪表盘：GET /admin/stats → ECharts 四图（与 qa_logs 一致）
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import request from '../../api/request'

@@ -1,4 +1,4 @@
-"""会话接口：多用户多会话管理（需求 3/4）"""
+"""会话接口：多用户多会话管理"""
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,7 +49,7 @@ async def delete_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """软删会话：历史保留可找回（需求 4）"""
+    """软删会话：历史保留可找回"""
     session = await session_service.get_user_session(db, user.id, session_id)
     await session_service.soft_delete_session(db, session)
     return {"message": "删除成功"}
@@ -61,6 +61,6 @@ async def session_messages(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """历史消息列表：重新登录可找回完整对话与引用（需求 4）"""
+    """历史消息列表：重新登录可找回完整对话与引用"""
     await session_service.get_user_session(db, user.id, session_id)
     return await session_service.list_messages(db, session_id)

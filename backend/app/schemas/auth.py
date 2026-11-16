@@ -23,7 +23,7 @@ class LoginRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    """修改密码请求：需提供原密码（需求 5）"""
+    """修改密码请求：需提供原密码"""
 
     old_password: str = Field(..., min_length=6, max_length=64, description="原密码")
     new_password: str = Field(..., min_length=6, max_length=64, description="新密码")

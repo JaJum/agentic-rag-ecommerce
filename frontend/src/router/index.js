@@ -1,6 +1,6 @@
 /**
  * 路由与守卫：
- * - requiresAuth：需登录（M1 起生效）
+ * - requiresAuth：需登录
  * - requiresAdmin：仅管理员（前端守卫；后端接口另有 require_admin 双重控制）
  */
 import { createRouter, createWebHistory } from 'vue-router'

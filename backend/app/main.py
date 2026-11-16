@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     # 启动恢复：把上次中断的入库任务标记 failed（可重试），避免卡中间状态
     recovered = await recover_stale_documents()
     if settings.vector_enabled:
-        # 预热 BGE-M3 + reranker（常驻单例，避免首请求冷启动；M5 压测教训：reranker 也要预热）
+        # 预热 BGE-M3 + reranker（常驻单例，避免首请求冷启动；压测教训：reranker 也要预热）
         await asyncio.to_thread(embeddings.get_embedding_model)
         if settings.rerank_provider == "local":
             await asyncio.to_thread(reranker.get_reranker)
@@ -57,8 +57,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="LangChain RAG 电商知识库问答系统",
-    description="基于 LangChain 的 RAG 企业级知识库问答系统（毕设）",
+    title="Agentic RAG 电商智能客服",
+    description="LangGraph 编排的电商 Agentic RAG 客服：意图路由、6 个业务工具、混合检索与引用溯源",
     version="0.1.0",
     lifespan=lifespan,
 )

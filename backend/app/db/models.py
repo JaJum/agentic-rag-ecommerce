@@ -37,7 +37,7 @@ def gen_uuid() -> str:
 
 
 class User(Base):
-    """用户表：role 决定权限（admin 独享知识库管理，需求 6）"""
+    """用户表：role 决定权限（admin 独享知识库管理）"""
 
     __tablename__ = "users"
 
@@ -50,7 +50,7 @@ class User(Base):
 
 
 class ChatSession(Base):
-    """会话表：每用户独立会话（需求 3），软删保护历史可找回（需求 4）"""
+    """会话表：每用户独立会话，软删保护历史可找回"""
 
     __tablename__ = "chat_sessions"
     __table_args__ = (Index("ix_sessions_user_updated", "user_id", "updated_at"),)
@@ -157,7 +157,7 @@ class MessageCitation(Base):
 
 
 class Feedback(Base):
-    """反馈表：点赞/点踩（需求 8 扩展），一条消息仅一条反馈"""
+    """反馈表：点赞/点踩，一条消息仅一条反馈"""
 
     __tablename__ = "feedback"
 
@@ -196,7 +196,7 @@ class QaLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, server_default=func.now())
 
 class AgentRun(Base):
-    """Agent 单次运行记录（M8）：路由、状态、步数、工具调用与耗时，供仪表盘与轨迹回放"""
+    """Agent 单次运行记录：路由、状态、步数、工具调用与耗时，供仪表盘与轨迹回放"""
 
     __tablename__ = "agent_runs"
     __table_args__ = (
@@ -220,7 +220,7 @@ class AgentRun(Base):
 
 
 class AgentStep(Base):
-    """Agent 执行轨迹单步（M8/F-04）：节点、工具、参数/结果摘要、耗时"""
+    """Agent 执行轨迹单步：节点、工具、参数/结果摘要、耗时"""
 
     __tablename__ = "agent_steps"
     __table_args__ = (Index("ix_agent_steps_run", "run_id", "step_no"),)

@@ -1,5 +1,5 @@
 """
-跨数据库类型适配（R-01）。
+跨数据库类型适配。
 
 同一套 ORM 模型要能在两种环境建表：
 - MySQL 8：生产/演示环境（DATETIME(6) 微秒精度、MEDIUMTEXT 16MB、BIGINT 自增）

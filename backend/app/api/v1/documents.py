@@ -1,5 +1,5 @@
 """
-知识库管理接口（仅 admin，需求 1/6）：
+知识库管理接口（仅 admin）：
 上传 → 后台异步入库；列表/详情/分块预览/重建索引/删除。
 """
 import asyncio
@@ -124,7 +124,7 @@ async def reindex_document(
     _: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """重建该文档的分块/索引（幂等重建，M3 起含向量库重建）"""
+    """重建该文档的分块/索引（幂等重建，含向量库重建）"""
     doc = await db.get(Document, doc_id)
     if doc is None:
         raise BizError("文档不存在", code="DOC_NOT_FOUND", status_code=404)
@@ -164,7 +164,7 @@ async def delete_document(
     doc = await db.get(Document, doc_id)
     if doc is None:
         raise BizError("文档不存在", code="DOC_NOT_FOUND", status_code=404)
-    # 固定删除顺序（方案）：向量 → MySQL 行 → 文件
+    # 固定删除顺序：向量 → MySQL 行 → 文件
     await asyncio.to_thread(vector_store.delete_by_doc, doc_id)
     await db.execute(delete(Chunk).where(Chunk.doc_id == doc_id))
     file_path = UPLOAD_DIR / doc.filename

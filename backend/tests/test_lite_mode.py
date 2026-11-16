@@ -1,4 +1,4 @@
-"""Lite 模式测试（R-01~R-03）：SQLite 类型适配、BM25 单路检索、Mock LLM。"""
+"""Lite 模式测试：SQLite 类型适配、BM25 单路检索、Mock LLM。"""
 import pytest
 from app.db.compat import BigInt, LongText, Ts6
 from app.services import llm as llm_mod

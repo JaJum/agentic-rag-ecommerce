@@ -17,7 +17,7 @@ log = get_logger(__name__)
 # 进程内运行中的任务注册表（doc_id → Task）
 _running: dict[str, asyncio.Task] = {}
 
-# 入库并发闸门：worker 并发=1（串行化避免 MySQL 死锁；M3 批量向量化时也限流）
+# 入库并发闸门：worker 并发=1（串行化避免 MySQL 死锁；批量向量化时也限流）
 _ingest_semaphore = asyncio.Semaphore(1)
 
 # 非终态状态集合（启动恢复用）

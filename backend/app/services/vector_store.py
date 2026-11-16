@@ -1,9 +1,9 @@
 """
-Chroma 向量库封装（M3）：
+Chroma 向量库封装：
 内嵌持久化（backend/data/chroma），collection 名 kb。
 一致性约定：MySQL chunks 表是 source of truth，Chroma 是可重建的衍生索引；
 删除顺序固定：向量 → MySQL 行 → 文件。
-M5：Chroma 的 Rust 客户端非线程安全——所有集合操作在锁内串行执行（查询仅 ~20ms，代价可忽略）。
+Chroma 的 Rust 客户端非线程安全——所有集合操作在锁内串行执行（查询仅 ~20ms，代价可忽略）。
 """
 import threading
 from pathlib import Path
@@ -81,7 +81,7 @@ def delete_by_doc(doc_id: str) -> None:
 
 
 def count() -> int:
-    """当前向量总数（验收/监控用）"""
+    """当前向量总数（监控用）"""
     with _chroma_lock:
         return get_vector_store()._collection.count()
 

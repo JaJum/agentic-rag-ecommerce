@@ -1,5 +1,5 @@
 <template>
-  <!-- 问答主界面（需求 2/3/4）：左=会话列表 中=流式对话 右=引用溯源 -->
+  <!-- 问答主界面：左=会话列表 中=流式对话 右=引用溯源 -->
   <div class="chat-layout">
     <!-- 左侧：会话列表 -->
     <aside class="sessions">
@@ -157,7 +157,7 @@ async function onNewSession() {
   activeCitations.value = []
 }
 
-/** 切换会话：拉取历史（需求 4：重登可找回） */
+/** 切换会话：拉取历史（重登可找回） */
 async function onSelectSession(s) {
   if (streaming.value) return
   activeSessionId.value = s.id
@@ -188,7 +188,7 @@ async function onSessionCmd(cmd, s) {
   }
 }
 
-/** 历史消息轨迹回放（F-04）：点击「轨迹」按需加载 */
+/** 历史消息轨迹回放：点击「轨迹」按需加载 */
 async function onLoadTrace(m) {
   if (m.trace?.length) return
   try {
@@ -205,7 +205,7 @@ async function onLoadTrace(m) {
   }
 }
 
-/** 发送问题：SSE 流式渲染回答（需求 2） */
+/** 发送问题：SSE 流式渲染回答 */
 async function onSend() {
   const query = input.value.trim()
   if (!query || streaming.value) return
@@ -313,7 +313,7 @@ function onCiteClick(m, n) {
   panelVisible.value = true
 }
 
-/** 点赞/点踩（需求 8） */
+/** 点赞/点踩 */
 async function onFeedback(m, rating) {
   try {
     await feedback(m.id, rating)
@@ -324,7 +324,7 @@ async function onFeedback(m, rating) {
   }
 }
 
-/** 导出对话 Markdown（需求 8） */
+/** 导出对话 Markdown */
 async function onExport() {
   if (!activeSessionId.value) return
   const { markdown } = await exportSession(activeSessionId.value)

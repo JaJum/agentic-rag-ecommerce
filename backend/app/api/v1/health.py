@@ -1,6 +1,6 @@
 """
-健康检查接口：验证数据库连通性，暴露模型加载状态（M3 起含真实值）。
-供前端启动探测与答辩演示使用。
+健康检查接口：验证数据库连通性，暴露模型加载状态。
+供前端启动探测与演示使用。
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy import text

@@ -1,6 +1,6 @@
 """
 管理端接口（仅 admin，普通用户 403）：
-统计仪表盘（M6 完整版）：问答量/命中率/延迟/token/Top 查询/反馈占比/7 日趋势。
+统计仪表盘：问答量/命中率/延迟/token/Top 查询/反馈占比/7 日趋势。
 数据源 = qa_logs + feedback + 基础表（与 qa_logs 明细严格一致）。
 """
 from datetime import datetime, timedelta
@@ -21,7 +21,7 @@ async def stats(
     _: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """仪表盘全量指标（M6）：概览卡片 + 图表数据一次返回"""
+    """仪表盘全量指标：概览卡片 + 图表数据一次返回"""
 
     # ---- 概览指标 ----
     user_count = (await db.execute(select(func.count(User.id)))).scalar() or 0
@@ -71,7 +71,7 @@ async def stats(
     )).all()
     trend = [{"date": str(day), "count": cnt} for day, cnt in trend_rows]
 
-    # ---- Agent 指标（M8/F-05）----
+    # ---- Agent 指标 ----
     agent_total = (await db.execute(select(func.count(AgentRun.id)))).scalar() or 0
     agent_ok = (await db.execute(
         select(func.count(AgentRun.id)).where(AgentRun.status == "ok")

@@ -1,5 +1,5 @@
 <template>
-  <!-- Markdown 渲染器：支持代码高亮 + [n] 引用上标可点击（需求 2） -->
+  <!-- Markdown 渲染器：支持代码高亮 + [n] 引用上标可点击 -->
   <div class="md-body" v-html="html" @click="onClick"></div>
 </template>
 

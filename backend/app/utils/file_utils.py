@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.core.exceptions import BizError
 
-# 允许的文档类型（需求 1 支持的格式）
+# 允许的文档类型
 ALLOWED_EXTENSIONS = {".md", ".txt", ".pdf", ".docx", ".csv", ".xlsx"}
 # 单文件大小上限 50MB（企业级防护）
 MAX_FILE_SIZE = 50 * 1024 * 1024

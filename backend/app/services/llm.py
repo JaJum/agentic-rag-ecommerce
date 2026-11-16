@@ -1,5 +1,5 @@
 """
-LLM 工厂（M4）：阿里云百炼 qwen3.8-flash（OpenAI 兼容，AsyncChatOpenAI）。
+LLM 工厂：阿里云百炼 qwen3.8-flash（OpenAI 兼容，AsyncChatOpenAI）。
 - 多模型分工：查询改写用 llm_rewrite_model，回答生成用 llm_model（.env 可配）
 - enable_thinking 经 extra_body 透传（默认关闭保首字延迟）
 - MOCK_LLM=true 时返回确定性 MockChatModel：无 Key / CI / 离线演示可跑通全链路
@@ -21,7 +21,7 @@ _COMPARE_SPLIT = re.compile(r"(.+?)\s*(?:和|与|跟)\s*(.+?)(?:的|哪个|哪�
 
 class MockChatModel:
     """
-    确定性假模型（R-03）。
+    确定性假模型。
 
     只模拟项目实际用到的三种行为，不追求通用性：
     1. 绑定工具后：首轮产出一个 tool_call，拿到 ToolMessage 后给出带 [1] 的最终回答

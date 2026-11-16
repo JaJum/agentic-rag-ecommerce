@@ -1,5 +1,5 @@
 /**
- * POST 触发的 SSE 流式解析（需求 2 核心交互）。
+ * POST 触发的 SSE 流式解析。
  * EventSource 不支持 POST/自定义头，故用 fetch + ReadableStream 手动解析 SSE 帧。
  * 事件协议：meta → citation* → (reasoning*) → token* → done | fallback | error
  */

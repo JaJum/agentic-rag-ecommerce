@@ -1,6 +1,6 @@
 /**
  * 认证状态（Pinia）：token / 用户信息 / 角色。
- * M1 实现完整登录流程后在此维护用户态。
+ * 在此维护登录后的用户态。
  */
 import { defineStore } from 'pinia'
 

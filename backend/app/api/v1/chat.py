@@ -1,5 +1,5 @@
 """
-问答接口（M4 核心）：SSE 流式问答 + 引用溯源 + 反馈 + 导出 + 停止生成。
+问答接口：SSE 流式问答 + 引用溯源 + 反馈 + 导出 + 停止生成。
 链路：上下文 → 查询改写 → 混合检索 → rerank → Prompt → 流式生成 → 引用解析 → 落库。
 """
 import asyncio
@@ -47,7 +47,7 @@ log = get_logger(__name__)
 # 停止生成：session_id → Event（POST /chat/stop 置位，流式循环检测）
 _stop_events: dict[str, asyncio.Event] = {}
 
-# LLM 并发信号量（方案⑬：限并发防 API 过载）
+# LLM 并发信号量：限并发防 API 过载
 _llm_semaphore: asyncio.Semaphore | None = None
 
 
@@ -71,10 +71,10 @@ async def chat_stream(
     流式问答（SSE 事件：meta → citation* → token* → done | fallback | error）。
     session_id 为空时自动新建会话。
     """
-    # 限流：每用户问答 10 次/分钟（M5）
+    # 限流：每用户问答 10 次/分钟
     check_rate_limit(user.id, scope="chat")
 
-    # 安全防护（M6）：输入清洗 + 敏感词 + prompt injection 拦截
+    # 安全防护：输入清洗 + 敏感词 + prompt injection 拦截
     body.query = clean_input(body.query)
     check_sensitive(body.query)
 
@@ -107,7 +107,7 @@ async def chat_stream(
         token_usage = None
         persisted = False
         try:
-            # ⓪ 精确问答缓存：命中直接回放（方案⑧，重复问题零检索零 LLM）
+            # ⓪ 精确问答缓存：命中直接回放（重复问题零检索零 LLM）
             cache = get_cache()
             cache_key = qa_cache_key(body.query, history)
             cached = cache.get(cache_key)
@@ -137,7 +137,7 @@ async def chat_stream(
                                     "latency_ms": latency_ms, "cache_hit": True})
                 return
 
-            # ⓪-2 Agent 分支（M8）：LangGraph 编排；失败自动降级到原 RAG 链路
+            # ⓪-2 Agent 分支：LangGraph 编排；失败自动降级到原 RAG 链路
             if get_settings().agent_enabled:
                 agent_content = ""
                 agent_ctx: list[dict] = []
@@ -318,7 +318,7 @@ async def chat_stream(
             # ① 查询改写（多轮指代消解，失败自动回退原问题）
             rewritten = await rewrite_query(body.query, history)
 
-            # ② 混合检索 + rerank（同步重计算卸载到线程池，避免阻塞事件循环——M5 压测关键修复）
+            # ② 混合检索 + rerank（同步重计算卸载到线程池，避免阻塞事件循环——压测关键修复）
             t_ret = time.perf_counter()
             candidates = await asyncio.to_thread(hybrid_search, rewritten)
             t_rank = time.perf_counter()
@@ -508,7 +508,7 @@ async def message_feedback(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """反馈（需求 8）：一条消息一条反馈，重复提交覆盖"""
+    """反馈：一条消息一条反馈，重复提交覆盖"""
     await _check_message_owner(db, user.id, message_id)
     if body.rating not in (1, -1):
         raise BizError("rating 只能是 1 或 -1", code="BAD_RATING")
@@ -531,7 +531,7 @@ async def export_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """导出对话为 Markdown（需求 8 扩展）"""
+    """导出对话为 Markdown"""
     await session_service.get_user_session(db, user.id, session_id)
     rows = await session_service.list_messages(db, session_id)
     lines = ["# 对话导出\n"]
@@ -552,7 +552,7 @@ async def get_message_trace(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """历史消息轨迹回放（F-04）：返回运行摘要与逐步轨迹，无轨迹时 enabled=false"""
+    """历史消息轨迹回放：返回运行摘要与逐步轨迹，无轨迹时 enabled=false"""
     await _check_message_owner(db, user.id, message_id)
     run = (await db.execute(
         select(AgentRun).where(AgentRun.message_id == message_id)

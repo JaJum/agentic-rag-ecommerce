@@ -1,4 +1,4 @@
-"""引用解析单元测试（M6 验收：[n] 校验与归一化）"""
+"""引用解析单元测试（[n] 校验与归一化）"""
 from app.services.rag.generation import build_context_block, extract_citations
 
 

@@ -44,7 +44,7 @@ export function stopGeneration(sessionId) {
   return request.post('/chat/stop', { session_id: sessionId })
 }
 
-/** 查询消息的 Agent 执行轨迹（F-04 回放） */
+/** 查询消息的 Agent 执行轨迹（回放） */
 export function getMessageTrace(messageId) {
   return request.get(`/chat/messages/${messageId}/trace`)
 }

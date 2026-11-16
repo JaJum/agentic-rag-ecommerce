@@ -1,5 +1,5 @@
 """
-Lite 模式一键演示（R-05）。
+Lite 模式一键演示。
 
 无需 MySQL / GPU / API Key：
 - SQLite 本地库（backend/data/demo.db，每次重建，保证可复现）

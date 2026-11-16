@@ -1,5 +1,5 @@
 """
-FastAPI 依赖注入（M1）：
+FastAPI 依赖注入：
 - get_current_user：解析 Authorization 头获取当前用户（缺失/无效 → 401）
 - require_admin：仅放行管理员（普通用户 → 403），与前端路由守卫构成双重控制
 """
@@ -25,7 +25,7 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    """管理员校验：非 admin 角色返回 403（需求 6 的后端侧控制）"""
+    """管理员校验：非 admin 角色返回 403"""
     if user.role != "admin":
         raise ForbiddenError("仅管理员可执行此操作")
     return user

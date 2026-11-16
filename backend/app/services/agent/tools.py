@@ -1,5 +1,5 @@
 """
-Agent 工具集（M8）。
+Agent 工具集。
 
 统一约定：
 - 所有工具返回 (content, artifact)；artifact["contexts"] 为可引用的知识块。

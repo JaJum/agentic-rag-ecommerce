@@ -35,3 +35,4 @@ backend/data/
 .pytest_cache/
 .ruff_cache/
 *.log
+pytest-cache-files-*/

@@ -1,4 +1,4 @@
-"""分块策略单元测试（M6 验收：三类差异化分块）"""
+"""分块策略单元测试（三类差异化分块）"""
 from app.services.rag.chunking import (
     build_chunks,
     detect_type,

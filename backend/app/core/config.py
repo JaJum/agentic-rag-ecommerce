@@ -58,19 +58,19 @@ class Settings(BaseSettings):
     rerank_api_model: str = "BAAI/bge-reranker-v2-m3"
     device: str = "auto"                      # auto / cuda / cpu
 
-    # ---------- 检索（M4） ----------
-    retrieval_k: int = 15                     # 双路各取 top-k（M5 压测调优：20→15，降 GPU 负载）
+    # ---------- 检索 ----------
+    retrieval_k: int = 15                     # 双路各取 top-k（压测调优：20→15，降 GPU 负载）
     rerank_top_n: int = 5                     # 重排后进入 Prompt 的块数
     rerank_threshold: float = 0.05            # 精排分数阈值（实测标定：正样本≥0.15，负样本≤0.00002）
     rerank_threshold_fusion: float = 0.02     # 跳过精排时的 RRF 融合分阈值（未重标定，仅兜底）
 
-    # ---------- 性能（M5） ----------
+    # ---------- 性能 ----------
     rate_limit_chat_per_min: int = 10         # 每用户问答限流（次/分钟）
     llm_max_concurrency: int = 8              # LLM 并发信号量
     cache_ttl: int = 600                      # 问答缓存 TTL（秒）
     cache_size: int = 256                     # 内存缓存条数上限
 
-    # ---------- Agent（M8：LangGraph 编排） ----------
+    # ---------- Agent（LangGraph 编排） ----------
     agent_enabled: bool = True                # 总开关；false 时行为与改造前完全一致
     agent_max_steps: int = 3                  # 最多工具调用步数
     agent_timeout_s: int = 30                 # 单次问答 Agent 总超时

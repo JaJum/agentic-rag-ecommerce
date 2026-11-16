@@ -1,4 +1,4 @@
-"""安全与防护单元测试（M6 验收：auth + 敏感词 + 注入拦截）"""
+"""安全与防护单元测试（auth + 敏感词 + 注入拦截）"""
 
 import pytest
 from app.core.exceptions import AuthError, BizError

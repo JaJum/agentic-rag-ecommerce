@@ -1,5 +1,5 @@
 <template>
-  <!-- 知识库管理（仅 admin）：上传 → 入库进度 → 分块预览 / 重建索引 / 删除（需求 1） -->
+  <!-- 知识库管理（仅 admin）：上传 → 入库进度 → 分块预览 / 重建索引 / 删除 -->
   <div class="page">
     <el-card>
       <div class="toolbar">

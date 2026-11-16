@@ -1,5 +1,5 @@
 """
-BGE-M3 本地 Embedding 单例（M3）：
+BGE-M3 本地 Embedding 单例：
 - GPU 自动检测（RTX 4060），显存不足/无卡自动降级 CPU
 - 模型经 ModelScope 下载到 backend/data/models（.env 配置本地路径，绕开 HF 网络问题）
 - 常驻单例：lifespan 预热，避免首请求冷启动
@@ -58,7 +58,7 @@ def get_embedding_model():
             model_kwargs={"device": device},
             encode_kwargs={
                 "normalize_embeddings": True,  # 余弦相似度需归一化
-                "batch_size": 32,              # 批量编码（方案：批量 embedding）
+                "batch_size": 32,              # 批量编码（批量 embedding）
             },
         )
         log.info("embedding.ready", provider="local", model=settings.embedding_model)

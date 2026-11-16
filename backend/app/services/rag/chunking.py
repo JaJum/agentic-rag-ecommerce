@@ -47,7 +47,7 @@ def build_chunks(parsed: ParsedFile, doc_type: str, file_type: str) -> list[dict
 
     # 统一编号与字段补全（seq 供引用与预览排序）
     for i, c in enumerate(raw):
-        c["id"] = str(uuid_mod.uuid4())  # uuid 同时作为 M3 的 Chroma 向量 id
+        c["id"] = str(uuid_mod.uuid4())  # uuid 同时作为 Chroma 向量 id
         c["seq"] = i
         c["char_len"] = len(c["text"])
         c.setdefault("meta", {})

@@ -1,5 +1,5 @@
 <template>
-  <!-- 引用溯源面板（需求 2 核心差异化）：展示回答引用的知识库片段原文 -->
+  <!-- 引用溯源面板：展示回答引用的知识库片段原文 -->
   <div class="panel">
     <div class="panel-head">
       <span>引用溯源</span>
