@@ -42,7 +42,8 @@ async def lifespan(app: FastAPI):
     if settings.vector_enabled:
         # 预热 BGE-M3 + reranker（常驻单例，避免首请求冷启动；M5 压测教训：reranker 也要预热）
         await asyncio.to_thread(embeddings.get_embedding_model)
-        await asyncio.to_thread(reranker.get_reranker)
+        if settings.rerank_provider == "local":
+            await asyncio.to_thread(reranker.get_reranker)
     else:
         # Lite 模式：不加载本地模型，BM25 检索 + Mock LLM 即可跑通全链路
         log.info("app.lite_mode", retrieval_mode=settings.retrieval_mode,

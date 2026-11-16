@@ -33,7 +33,14 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
     return {
         "status": "ok" if db_ok else "degraded",
         "db": "ok" if db_ok else "down",
-        "model_ready": model_ready(),   # BGE-M3 是否已加载（lifespan 预热）
+        "model_ready": model_ready(),   # Embedding 是否就绪（lifespan 预热）
+        "embedding_provider": settings.embedding_provider,
+        "embedding_model": (
+            settings.embedding_api_model
+            if settings.embedding_provider == "api"
+            else settings.embedding_model
+        ),
+        "rerank_provider": settings.rerank_provider,
         "llm_model": settings.llm_model,
         "llm_thinking": settings.llm_enable_thinking,
         "version": "0.1.0",

@@ -20,12 +20,14 @@ class Settings(BaseSettings):
         env_file=str(ENV_FILE), env_file_encoding="utf-8", extra="ignore"
     )
 
-    # ---------- 阿里云百炼（DashScope OpenAI 兼容模式） ----------
-    dashscope_api_key: str = ""
+    # ---------- LLM（任意 OpenAI 兼容接口：DeepSeek / OpenAI / Kimi / 智谱 / Ollama ...） ----------
+    llm_api_key: str = ""                     # 通用 API Key（推荐）
+    dashscope_api_key: str = ""               # 旧变量名，保留向后兼容
     llm_base_url: str = "https://cn-beijing.maas.qianwenaiapi.com/compatible-mode/v1"
     llm_model: str = "qwen3.8-flash"          # 回答生成模型
-    llm_rewrite_model: str = "qwen3.8-flash"  # 查询改写模型（轻任务）
+    llm_rewrite_model: str = ""               # 查询改写模型（轻任务），空则复用 LLM_MODEL
     llm_enable_thinking: bool = False         # 思考模式默认关（实测开启后简单问题产生 350+ reasoning tokens）
+    llm_send_thinking_param: bool = False     # True 才透传 enable_thinking（仅 Qwen 系需要）
     llm_temperature: float = 0.3
     llm_request_timeout: int = 60
     llm_max_retries: int = 3
@@ -42,15 +44,25 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 24 * 60  # token 有效期 24h
     redis_url: str = ""                       # 可选：配置后自动启用 Redis 缓存
 
-    # ---------- 本地模型（M3 生效） ----------
+    # ---------- Embedding（local 本地模型 | api OpenAI 兼容接口 | none 见下方 Lite） ----------
     embedding_model: str = "BAAI/bge-m3"
+    embedding_api_key: str = ""               # 留空则复用 LLM_API_KEY
+    embedding_api_base: str = ""              # 留空则复用 LLM_BASE_URL
+    embedding_api_model: str = "text-embedding-3-small"
+    embedding_dim: int = 0                    # 期望维度；0=不校验。换模型后向量库必须重建
+
+    # ---------- Rerank（local 本地模型 | api 通用 /rerank 接口 | none 跳过精排） ----------
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
+    rerank_api_key: str = ""                  # 留空则复用 LLM_API_KEY
+    rerank_api_base: str = ""                 # 留空则复用 LLM_BASE_URL
+    rerank_api_model: str = "BAAI/bge-reranker-v2-m3"
     device: str = "auto"                      # auto / cuda / cpu
 
     # ---------- 检索（M4） ----------
     retrieval_k: int = 15                     # 双路各取 top-k（M5 压测调优：20→15，降 GPU 负载）
     rerank_top_n: int = 5                     # 重排后进入 Prompt 的块数
-    rerank_threshold: float = 0.05            # 低于此分 → 兜底拒答（实测标定：正样本≥0.15，负样本≤0.00002）
+    rerank_threshold: float = 0.05            # 精排分数阈值（实测标定：正样本≥0.15，负样本≤0.00002）
+    rerank_threshold_fusion: float = 0.02     # 跳过精排时的 RRF 融合分阈值（未重标定，仅兜底）
 
     # ---------- 性能（M5） ----------
     rate_limit_chat_per_min: int = 10         # 每用户问答限流（次/分钟）
@@ -73,6 +85,7 @@ class Settings(BaseSettings):
     retrieval_mode: str = "hybrid"            # hybrid | bm25
     bm25_min_coverage: float = 0.75          # Lite 模式关键词覆盖率阈值（低于视为未命中）
     embedding_provider: str = "local"         # local | api | none
+    rerank_provider: str = "local"            # local | api | none
     mock_llm: bool = False                    # 无 Key 演示 / CI
     db_url: str = Field("", validation_alias="DATABASE_URL")  # 覆盖连接串（如 SQLite）
 
@@ -102,8 +115,15 @@ class Settings(BaseSettings):
         return self.agent_router_model or self.llm_rewrite_model
 
     @property
+    def resolved_llm_api_key(self) -> str:
+        """统一取 Key：优先 LLM_API_KEY，未填时回退旧变量 DASHSCOPE_API_KEY"""
+        return self.llm_api_key or self.dashscope_api_key
+
+    @property
     def thinking_extra_body(self) -> dict:
-        """ChatOpenAI 的 extra_body：把 enable_thinking 透传给百炼"""
+        """ChatOpenAI 扩展参数：仅在显式开启时透传（Qwen 系专用，其它供应商传了会 400）"""
+        if not self.llm_send_thinking_param:
+            return {}
         return {"enable_thinking": self.llm_enable_thinking}
 
 

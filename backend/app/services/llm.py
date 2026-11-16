@@ -117,13 +117,13 @@ def get_llm(model: str | None = None, streaming: bool = True, temperature: float
     if settings.mock_llm:
         return MockChatModel(streaming=streaming)
     return ChatOpenAI(
-        api_key=settings.dashscope_api_key,
+        api_key=settings.resolved_llm_api_key,
         base_url=settings.llm_base_url,
         model=model or settings.llm_model,
         temperature=settings.llm_temperature if temperature is None else temperature,
         max_retries=settings.llm_max_retries,
         timeout=settings.llm_request_timeout,
         streaming=streaming,
-        # enable_thinking 透传给百炼（兼容模式扩展参数，显式传参避免告警）
-        extra_body=settings.thinking_extra_body,
+        # 仅 LLM_SEND_THINKING_PARAM=true 时透传 enable_thinking（Qwen 系专用参数）
+        extra_body=settings.thinking_extra_body or None,
     )

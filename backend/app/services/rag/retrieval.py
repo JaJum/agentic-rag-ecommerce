@@ -94,8 +94,9 @@ def _bm25_search(query: str, k: int) -> list[dict]:
 
 def rerank_top(query: str, candidates: list[dict]) -> list[dict]:
     """
-    bge-reranker 精排：对融合候选打分重排，返回 top_n（附 rerank_score）。
-    Lite 模式下跳过重排，用 BM25 分数代替 rerank_score（字段语义保持一致）。
+    精排：对融合候选打分重排，返回 top_n（附 rerank_score）。
+    三种模式：bm25（Lite）/ rerank_provider=none（用 RRF 融合分）/ local·api（模型打分）。
+    字段 rerank_score 在三种模式下语义保持一致，便于前端与引用校验统一处理。
     """
     settings = get_settings()
     top_n = settings.rerank_top_n
@@ -106,6 +107,14 @@ def rerank_top(query: str, candidates: list[dict]) -> list[dict]:
         for c in ranked:
             c["rerank_score"] = c.get("bm25_score", 0.0)
         log.info("retrieval.bm25_rank", top_score=ranked[0]["rerank_score"] if ranked else None)
+        return ranked[:top_n]
+
+    if settings.rerank_provider == "none":
+        # 无精排：直接用 RRF 融合分排序，分数尺度与精排不同，故另有阈值项
+        ranked = sorted(candidates, key=lambda c: c.get("rrf_score", 0.0), reverse=True)
+        for c in ranked:
+            c["rerank_score"] = float(c.get("rrf_score", 0.0))
+        log.info("retrieval.fusion_rank", top_score=ranked[0]["rerank_score"] if ranked else None)
         return ranked[:top_n]
 
     candidates = candidates[:10]
@@ -126,5 +135,8 @@ def is_relevant(top: list[dict]) -> bool:
     settings = get_settings()
     if settings.retrieval_mode == "bm25":
         return bool(top)
+    if settings.rerank_provider == "none":
+        # 融合分与精排分数尺度不同，单独配置阈值（默认值未重标定）
+        return bool(top) and top[0].get("rrf_score", 0.0) >= settings.rerank_threshold_fusion
     threshold = settings.rerank_threshold
     return bool(top) and top[0]["rerank_score"] >= threshold

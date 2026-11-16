@@ -20,6 +20,27 @@ PERSIST_DIR = Path(__file__).resolve().parents[2] / "data" / "chroma"
 COLLECTION = "kb_chunks"  # chromadb 要求 collection 名 ≥3 字符
 
 _store = None  # 常驻单例
+_SIG_FILE = PERSIST_DIR / ".embedding_signature"  # 建库时使用的 Embedding 标识
+
+
+def _guard_embedding_change() -> None:
+    """
+    换 Embedding 模型后，旧向量与查询向量不在同一空间（维度甚至不同），
+    查询会直接抛 InvalidDimensionException。这里在启动时对比标识并给出明确提示。
+    """
+    from app.services.embeddings import embedding_signature
+
+    sig = embedding_signature()
+    PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+    old = _SIG_FILE.read_text(encoding="utf-8").strip() if _SIG_FILE.exists() else ""
+    if old and old != sig:
+        log.warning(
+            "vector_store.embedding_changed",
+            old=old,
+            new=sig,
+            hint="Embedding 已变更，请重建向量库：cd backend && python scripts/rebuild_vector_store.py",
+        )
+    _SIG_FILE.write_text(sig, encoding="utf-8")
 
 
 def get_vector_store():
@@ -30,7 +51,7 @@ def get_vector_store():
 
         from app.services.embeddings import get_embedding_model
 
-        PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+        _guard_embedding_change()
         _store = Chroma(
             collection_name=COLLECTION,
             embedding_function=get_embedding_model(),

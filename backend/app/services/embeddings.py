@@ -23,16 +23,33 @@ _model = None  # 常驻单例
 
 
 def get_embedding_model():
-    """获取（或首次加载）Embedding 模型单例"""
+    """获取（或首次加载）Embedding 单例：local=本地模型，api=OpenAI 兼容接口"""
     global _model
-    if get_settings().embedding_provider == "none":
+    settings = get_settings()
+    provider = settings.embedding_provider
+    if provider == "none":
         raise RuntimeError(
-            "EMBEDDING_PROVIDER=none：Lite 模式不加载本地 Embedding，请配合 RETRIEVAL_MODE=bm25 使用"
+            "EMBEDDING_PROVIDER=none：Lite 模式不加载 Embedding，请配合 RETRIEVAL_MODE=bm25 使用"
         )
     if _model is None:
+        if provider == "api":
+            from langchain_openai import OpenAIEmbeddings
+
+            _model = OpenAIEmbeddings(
+                model=settings.embedding_api_model,
+                api_key=settings.embedding_api_key or settings.resolved_llm_api_key,
+                base_url=settings.embedding_api_base or settings.llm_base_url,
+                # 关键：非 OpenAI 服务不接受 tiktoken 切好的 token 数组，必须传纯文本
+                check_embedding_ctx_length=False,
+                chunk_size=16,
+                max_retries=settings.llm_max_retries,
+                request_timeout=settings.llm_request_timeout,
+            )
+            log.info("embedding.ready", provider="api", model=settings.embedding_api_model)
+            return _model
+
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        settings = get_settings()
         device = resolve_device(settings.device)
         log.info("embedding.loading", model=settings.embedding_model, device=device)
         _model = HuggingFaceEmbeddings(
@@ -44,8 +61,24 @@ def get_embedding_model():
                 "batch_size": 32,              # 批量编码（方案：批量 embedding）
             },
         )
-        log.info("embedding.ready", model=settings.embedding_model)
+        log.info("embedding.ready", provider="local", model=settings.embedding_model)
     return _model
+
+
+def embedding_signature() -> str:
+    """当前 Embedding 的稳定标识：用于检测「换模型后向量库与查询向量不一致」"""
+    settings = get_settings()
+    if settings.embedding_provider == "none":
+        return "none"
+    if settings.embedding_provider == "api":
+        return f"api:{settings.embedding_api_model}"
+    return f"local:{settings.embedding_model}"
+
+
+def reset_model() -> None:
+    """释放单例（切换 provider / 测试用）"""
+    global _model
+    _model = None
 
 
 def is_ready() -> bool:

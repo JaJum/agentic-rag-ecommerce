@@ -4,7 +4,7 @@
 > 独立完成：Agent 编排、6 个业务工具、数据生成、评测集、前后端与可复现 Lite 模式。
 
 <p>
-  <b>77</b> 个后端测试 ｜ <b>48</b> 条 Agent 评测用例 ｜ 工具选择准确率 <b>100%</b> ｜ 任务完成率 <b>97.9%</b>
+  <b>81</b> 个后端测试 ｜ <b>48</b> 条 Agent 评测用例 ｜ 工具选择准确率 <b>100%</b> ｜ 任务完成率 <b>97.9%</b>
 </p>
 
 <details>
@@ -22,6 +22,8 @@ An Agentic RAG customer-service prototype for e-commerce. A LangGraph state mach
 - **可观测**：每次运行的 `agent_runs / agent_steps` 落库，SSE 实时推送 `step / tool_call / tool_result / token / citation`，历史消息可回放轨迹，Dashboard 展示路由分布、工具成功率与 P95。
 - **可复现**：固定种子生成 72 商品 / 6 品类 / 164 chunks；48 条评测集覆盖闲聊、单跳、多跳、业务办理、库外拒答、Prompt 注入、多轮指代。
 - **零依赖演示**：`python scripts/demo.py` 一条命令跑通全链路（SQLite + BM25 + Mock LLM），不需要 API Key、GPU、MySQL。
+- **三层模型可插拔**：LLM / Embedding / Rerank 各自独立选 provider——LLM 支持任意 OpenAI 兼容接口（DeepSeek / OpenAI / Kimi / 智谱 / Ollama），Embedding 支持本地 BGE-M3 或 API，Rerank 支持本地模型 / 通用 `/rerank` 接口 / 关闭精排；换模型只改 `.env`，无需动代码。
+- **换模型不留坑**：向量库记录建库时的 Embedding 标识，换模型启动即告警并提示重建；跳过精排时改用 RRF 融合分阈值，而不是套用精排的分数尺度。
 
 ## 2. 界面演示
 
@@ -166,7 +168,7 @@ npm run dev
 - 健康检查：http://127.0.0.1:8000/api/v1/health
 - Swagger：http://127.0.0.1:8000/docs
 
-复制 `.env.example` 为 `.env` 后填写 `DASHSCOPE_API_KEY`、MySQL 与 `SECRET_KEY`。默认管理员 `admin / 123456`（演示密码，请修改）。
+复制 `.env.example` 为 `.env` 后填写 `LLM_API_KEY`、MySQL 与 `SECRET_KEY`（模板内置 DeepSeek / OpenAI / Kimi / 智谱 / Ollama 等预设，任意 OpenAI 兼容接口均可）。若不想下载本地模型，可设 `EMBEDDING_PROVIDER=api` + `RERANK_PROVIDER=api`（或 `none`），全链路只依赖 API。默认管理员 `admin / 123456`（演示密码，请修改）。
 
 ## 7. 可复现与测试
 
@@ -201,7 +203,7 @@ LangchainRAG项目/
 │   │   │   └── rag/          # 分块、检索、重排、生成、兜底、改写
 │   │   └── main.py
 │   ├── scripts/              # 数据生成、灌库、评测、Lite 演示
-│   └── tests/                # 77 个单元/集成测试
+│   └── tests/                # 81 个单元/集成测试
 ├── frontend/                 # Vue3 + Element Plus + ECharts
 ├── sample_data/              # 商品目录、评测集、订单 Mock
 ├── docs/images/              # README 截图与 90 秒演示 GIF
@@ -226,6 +228,7 @@ LangchainRAG项目/
 3. Lite 模式用 BM25 + 关键词覆盖率代理相关性，语义召回弱于向量检索，属于离线演示的取舍。
 4. 结构化对比只覆盖参数表字段，商品详情中的主观描述（如降噪能力）暂无法对比（C48）。
 5. 单机部署，未做多实例水平扩展；缓存与任务队列可平移到 Redis/Celery。
+6. 跳过精排（`RERANK_PROVIDER=none`）时改由 RRF 融合分排序，该阈值未针对新分数尺度重新标定，库外拒答能力弱于默认的本地精排；生产建议保留 `local` 或 `api` 精排。
 
 ## 11. License
 
